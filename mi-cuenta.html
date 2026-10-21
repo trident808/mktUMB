@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Marketplace UMB: compra y vende productos de emprendimientos universitarios.">
+  <title>Mi cuenta | Marketplace UMB</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="marketplace/styles.css">
+</head>
+<body>
+<header class="page-header"><div class="contenedor"><a class="brand-link" href="index.html">Marketplace <em>UMB</em></a><nav aria-label="Navegación principal"><a href="index.html">Inicio</a><a href="index.html#catalogo">Productos</a><a href="carrito.html">Carrito</a><a href="pedidos.html">Pedidos</a><a href="vender.html">Vender</a><a href="mi-cuenta.html">Mi cuenta</a></nav></div></header>
+<div class="franja-toldo" aria-hidden="true"></div>
+<main class="page-shell"><div class="contenedor"><div class="page-heading"><p class="etiqueta-eyebrow">Tu perfil</p><h1>Mi cuenta</h1><p class="muted">Administra tus datos y encuentra rápidamente tus compras.</p></div><div class="account-grid"><section class="panel-card"><p class="etiqueta-eyebrow">Información de la cuenta</p><h2 id="cuenta-nombre">Cargando perfil…</h2><p class="muted" id="cuenta-email"></p><p>Tipo de cuenta: <strong id="cuenta-rol">Comprador</strong></p><button class="boton boton-linea" id="btn-cerrar-sesion" type="button">Cerrar sesión</button></section><section class="panel-card"><p class="etiqueta-eyebrow">Accesos rápidos</p><div class="dashboard-links"><a href="pedidos.html"><strong>📦 Mis pedidos</strong><span class="muted">Consulta las solicitudes registradas.</span></a><a href="carrito.html"><strong>🛒 Mi carrito</strong><span class="muted">Continúa tu compra.</span></a><a href="vender.html"><strong>🏪 Mi tienda</strong><span class="muted">Crea y administra tu tienda.</span></a><a href="index.html#catalogo"><strong>💜 Explorar productos</strong><span class="muted">Encuentra nuevos emprendimientos.</span></a></div></section><section class="panel-card" id="wishlist"><h2>Lista de deseos</h2><div id="wishlist-cuenta"><p>Cargando favoritos…</p></div></section><section class="panel-card"><h2>Seguridad</h2><p class="muted">La sesión se gestiona mediante Supabase Auth. Puedes cerrar sesión desde aquí.</p><a class="inline-link" href="login.html">Volver al inicio de sesión</a></section></div></div></main>
+<footer class="site-footer"><div class="contenedor footer-bottom"><span>© 2026 Marketplace UMB</span><nav class="footer-links"><a href="index.html">Inicio</a><a href="login.html">Iniciar sesión</a><a href="registro.html">Crear cuenta</a></nav></div></footer>
+<div class="toast-contenedor" id="toast-contenedor" aria-live="polite"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="marketplace/supabase-config.js"></script><script src="marketplace/auth.js"></script><script src="marketplace/pages.js"></script>
+</body></html>
