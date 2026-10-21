@@ -1,0 +1,288 @@
+<!DOCTYPE html> 
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Marketplace UMB</title>
+  <meta name="description" content="Marketplace multivendedor de comercio electrónico para emprendimientos universitarios, con pasarela de pagos integrada y gestión de inventario en tiempo real.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,500&family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="marketplace/styles.css">
+  <meta name="theme-color" content="#c8102e">
+</head>
+<body>
+  <a class="skip-link" href="#contenido-principal">Saltar al contenido principal</a>
+
+  <!-- HEADER -->
+  <header class="site-header">
+    <div class="contenedor header-top">
+      <a class="logo" href="#hero">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 8l1.5-4h15L21 8M3 8h18M3 8l1 11a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1l1-11M8 11a2 2 0 1 1-4 0M12 11a2 2 0 1 1-4 0M16 11a2 2 0 1 1-4 0M20 11a2 2 0 1 1-4 0" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
+        Mercado <em>UMB</em>
+      </a>
+      <form class="buscador-global" role="search" id="form-busqueda-global">
+        <label for="busqueda-global">Buscar productos</label>
+        <input type="search" id="busqueda-global" name="q" placeholder="Buscar café, cerámica, mochilas…">
+        <button type="submit" aria-label="Buscar">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/><path d="M21 21l-4.3-4.3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+      </form>
+      <div class="header-acciones">
+        <a class="boton-icono header-favoritos" href="#wishlist" aria-label="Ver favoritos" title="Favoritos"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" aria-hidden="true"><path d="M20.8 4.6a5.4 5.4 0 0 0-7.6 0L12 5.8l-1.2-1.2a5.4 5.4 0 0 0-7.6 7.6l1.2 1.2L12 21l7.6-7.6 1.2-1.2a5.4 5.4 0 0 0 0-7.6Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></a>
+        <a class="boton boton-fantasma header-link" href="login.html" id="enlace-login">Ingresar</a>
+        <a class="boton boton-primario header-link" href="registro.html">Crear cuenta</a>
+        <button class="boton-icono" id="btn-configuracion" type="button" aria-label="Configuración" aria-expanded="false" aria-controls="panel-configuracion" title="Configuración"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.7"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-1.7 2.9-.2-.1a1.7 1.7 0 0 0-1.8-.2 1.7 1.7 0 0 0-1 1.5v.2h-3.4v-.2a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.2l-.2.1L7 17l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H5.7v-3.4h.2a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.9L7 7.6l1.7-2.9.2.1a1.7 1.7 0 0 0 1.8.2 1.7 1.7 0 0 0 1-1.5v-.2h3.4v.2a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.2l.2-.1 1.7 2.9-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.5 1h.2v3.4h-.2a1.7 1.7 0 0 0-1.5 1Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg></button>
+        <a class="boton boton-secundario header-link" href="mi-cuenta.html" id="enlace-cuenta" hidden>Mi cuenta</a>
+        <a class="boton boton-secundario header-link" href="mi-cuenta.html" id="enlace-cuenta" hidden>Mi cuenta</a>
+        <a class="boton-icono" id="btn-abrir-carrito" href="carrito.html" aria-label="Abrir carrito de compras" aria-haspopup="true">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6h15l-1.5 9h-12z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M6 6l-1-3H2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="9" cy="20" r="1.3" fill="currentColor"/><circle cx="17" cy="20" r="1.3" fill="currentColor"/></svg>
+          <span class="contador-badge" id="contador-carrito">0</span>
+        </button>
+        <button class="btn-hamburguesa" id="btn-menu" aria-expanded="false" aria-controls="nav-categorias" aria-label="Abrir menú de categorías">
+          <span></span>
+        </button>
+      </div>
+    </div>
+    <nav class="nav-categorias" id="nav-categorias" aria-label="Categorías principales">
+      <div class="contenedor">
+        <ul>
+          <li><a href="#inicio" aria-current="page">Inicio</a></li>
+          <li><a href="#categorias">Categorías</a></li>
+          <li><a href="#ofertas">Ofertas</a></li>
+          <li><a href="#nuevos">Novedades</a></li>
+          <li><a href="#emprendimientos">Emprendimientos</a></li>
+          <li><a href="pedidos.html">Mis pedidos</a></li>
+          <li><a href="mi-cuenta.html#wishlist">Lista de deseos</a></li>
+          <li><a href="vender.html">Vender en Marketplace UMB</a></li>
+        </ul>
+      </div>
+    </nav>
+  </header>
+
+  <div class="franja-toldo" aria-hidden="true"></div>
+
+  <div class="panel-configuracion" id="panel-configuracion" hidden aria-label="Configuración de apariencia">
+    <div class="panel-configuracion-titulo"><strong>Personaliza tu experiencia</strong><button type="button" id="cerrar-configuracion" class="cerrar-panel" aria-label="Cerrar configuración">×</button></div>
+    <label for="tema-sitio">Apariencia</label><select id="tema-sitio"><option value="claro">Tema claro</option><option value="oscuro">Tema oscuro</option><option value="auto">Automático</option></select>
+    <label for="color-sitio">Color de acento</label><select id="color-sitio"><option value="rojo">Rojo UMB</option><option value="morado">Morado</option><option value="azul">Azul</option><option value="verde">Verde</option></select>
+    <label for="texto-sitio">Tamaño del texto</label><select id="texto-sitio"><option value="normal">Normal</option><option value="grande">Grande</option><option value="muy-grande">Muy grande</option></select>
+    <p class="ayuda-config">Tus preferencias se guardan en este navegador.</p>
+  </div>
+
+  <main id="contenido-principal">
+    <!-- HERO -->
+    <section class="hero" id="inicio">
+      <div class="contenedor">
+        <div class="hero-texto">
+          <p class="etiqueta-eyebrow">UNIVERSIDAD MANUELA BELTRÁN · MERCADO UMB</p>
+          <h1>El marketplace de la <i>comunidad UMB.</i></h1>
+          <p>Compra y vende entre estudiantes y emprendimientos universitarios. Descubre productos únicos, apoya el talento local y encuentra todo en un solo lugar.</p>
+          <div class="hero-cta">
+            <a href="#catalogo" class="boton boton-secundario">Explorar catálogo</a>
+            <a href="vender.html" class="boton boton-fantasma">Abrir mi tienda</a>
+          </div>
+          <div class="hero-stats">
+            <div class="dato"><strong id="stat-productos">—</strong><span>productos disponibles</span></div>
+            <div class="dato"><strong>UMB</strong><span>comunidad universitaria</span></div>
+            <div class="dato"><strong>Local</strong><span>talento emprendedor</span></div>
+          </div>
+        </div>
+        <picture class="hero-picture">
+          <img
+            src="marketplace/imagen-principal.jpg" 
+            alt="Marketplace UMB - Emprendimientos universitarios"
+            width="800"
+            height="460"
+            loading="eager"
+          >
+        </picture>
+      </div>
+    </section>
+
+    <section class="seccion seccion-categorias" id="categorias">
+      <div class="contenedor"><div class="seccion-cabecera compacta"><p class="etiqueta-eyebrow">Explora por interés</p><h2>Compra por categoría</h2><p>Encuentra fácilmente lo que estás buscando.</p></div>
+        <div class="categorias-grid">
+          <button class="categoria-tile" data-categoria="Alimentos y bebidas"><span class="categoria-emoji">☕</span><strong>Alimentos y bebidas</strong></button>
+          <button class="categoria-tile" data-categoria="Artesanías"><span class="categoria-emoji">🏺</span><strong>Artesanías</strong></button>
+          <button class="categoria-tile" data-categoria="Moda y accesorios"><span class="categoria-emoji">👜</span><strong>Moda y accesorios</strong></button>
+          <button class="categoria-tile" data-categoria="Tecnología"><span class="categoria-emoji">🎧</span><strong>Tecnología</strong></button>
+          <button class="categoria-tile" data-categoria="Hogar"><span class="categoria-emoji">🪴</span><strong>Hogar</strong></button>
+          <button class="categoria-tile" data-categoria="Belleza natural"><span class="categoria-emoji">🧼</span><strong>Belleza natural</strong></button>
+        </div>
+      </div>
+    </section>
+
+    <section class="seccion estante-productos" id="ofertas"><div class="contenedor"><div class="estante-titulo"><div><p class="etiqueta-eyebrow">Oportunidades para ti</p><h2>Ofertas y destacados</h2><p>Productos para descubrir de la comunidad UMB.</p></div><a href="#catalogo" class="enlace-ver-mas">Ver catálogo →</a></div><div class="catalogo catalogo-estante" id="productos-destacados"></div></div></section>
+    <section class="seccion estante-productos estante-alterno" id="nuevos"><div class="contenedor"><div class="estante-titulo"><div><p class="etiqueta-eyebrow">Lo último en llegar</p><h2>Nuevos productos</h2><p>Conoce artículos disponibles en el marketplace.</p></div><a href="#catalogo" class="enlace-ver-mas">Ver todos →</a></div><div class="catalogo catalogo-estante" id="productos-nuevos"></div></div></section>
+    <section class="seccion estante-productos" id="emprendimientos"><div class="contenedor"><div class="estante-titulo"><div><p class="etiqueta-eyebrow">Compra con propósito</p><h2>Emprendimientos universitarios</h2><p>Conoce a quienes están detrás de cada producto.</p></div><a href="vender.html" class="enlace-ver-mas">Quiero vender →</a></div><div class="emprendimientos-grid" id="tiendas-destacadas"></div></div></section>
+
+    <!-- CATÁLOGO -->
+    <section class="seccion" id="catalogo">
+      <div class="contenedor">
+        <div class="seccion-cabecera">
+          <p class="etiqueta-eyebrow">RF-04 · RF-05</p>
+          <h2>Explora todo el catálogo</h2>
+          <p>Busca, filtra y arma un solo carrito con productos de distintas tiendas.</p>
+        </div>
+        <button class="boton boton-linea filtros-toggle" id="btn-toggle-filtros" aria-expanded="false" aria-controls="filtros-aside">Filtros</button>
+        <div class="layout-catalogo">
+          <aside class="filtros-aside" id="filtros-aside" aria-label="Filtros de catálogo">
+            <h2>Filtrar productos</h2>
+            <form id="form-filtros">
+              <div class="grupo-filtro">
+                <span>Categoría</span>
+                <select id="filtro-categoria">
+                  <option value="">Todas las categorías</option>
+                  <option value="Alimentos y bebidas">Alimentos y bebidas</option>
+                  <option value="Artesanías">Artesanías</option>
+                  <option value="Moda y accesorios">Moda y accesorios</option>
+                  <option value="Hogar">Hogar</option>
+                  <option value="Belleza natural">Belleza natural</option>
+                </select>
+              </div>
+              <div class="grupo-filtro">
+                <span>Rango de precio (COP)</span>
+                <div class="rango-precio">
+                  <input type="number" id="filtro-precio-min" min="0" step="1000" placeholder="Mín.">
+                  <span>–</span>
+                  <input type="number" id="filtro-precio-max" min="0" step="1000" placeholder="Máx.">
+                </div>
+              </div>
+              <div class="grupo-filtro">
+                <span>Calificación mínima</span>
+                <select id="filtro-calificacion">
+                  <option value="0">Cualquiera</option>
+                  <option value="4">4★ o más</option>
+                  <option value="4.5">4.5★ o más</option>
+                  <option value="4.8">4.8★ o más</option>
+                </select>
+              </div>
+              <div class="grupo-filtro">
+                <span>Disponibilidad</span>
+                <label><input type="checkbox" id="filtro-disponible"> Solo con stock disponible</label>
+              </div>
+              <div class="filtros-acciones">
+                <button type="submit" class="boton boton-secundario" style="flex:1;">Aplicar</button>
+                <button type="reset" class="boton boton-linea" id="btn-limpiar-filtros">Limpiar</button>
+              </div>
+            </form>
+          </aside>
+          <div>
+            <div class="catalogo-cabecera">
+              <h3 style="margin:0;font-size:1.05rem;">Todos los productos</h3>
+              <span class="catalogo-resultado" id="contador-resultados">8 productos</span>
+            </div>
+            <div class="catalogo" id="catalogo-grid"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- FICHA PRODUCTO -->
+    <section class="seccion" id="ficha-producto" style="padding-top:0;">
+      <div class="contenedor">
+        <div class="seccion-cabecera">
+          <p class="etiqueta-eyebrow">RF-03 · RF-10</p>
+          <h2>Ficha de producto</h2>
+          <p>Vista de detalle: descripción completa, tienda vendedora y reseñas.</p>
+        </div>
+        <article class="ficha-producto">
+          <figure class="ficha-imagen">
+            <img id="ficha-imagen-svg" src="" alt="" width="600" height="600">
+          </figure>
+          <div>
+            <span class="ficha-tienda" id="ficha-tienda">Finca Tierra Alta · Huila</span>
+            <h1 class="ficha-nombre" id="ficha-nombre">Café orgánico Tierra Alta 500g</h1>
+            <p class="producto-rating" id="ficha-rating">★★★★★ 4.8 (132 reseñas)</p>
+            <p id="ficha-descripcion">Café de origen único, cultivado a 1.800 msnm y tostado en pequeños lotes.</p>
+            <p class="ficha-precio" id="ficha-precio">$38.000</p>
+            <form id="form-agregar-detalle">
+              <div class="ficha-cantidad">
+                <label for="ficha-cantidad-input">Cantidad</label>
+                <input type="number" id="ficha-cantidad-input" min="1" max="10" value="1">
+                <span class="producto-stock" id="ficha-stock">24 unidades disponibles</span>
+              </div>
+              <button type="submit" class="boton boton-primario btn-agregar-carrito" data-producto-id="1" style="width:auto;">Agregar al carrito</button>
+            </form>
+            <div class="resenas">
+              <h4>Reseñas de compradores</h4>
+              <div class="resena">
+                <div class="resena-cabecera"><strong>Marcela R.</strong><span>★★★★★</span></div>
+                <p style="margin:0;">Llegó rapido. El sabor es increíble.</p>
+              </div>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- ESTADO DEL PEDIDO / INVENTARIO -->
+    <section class="seccion" id="estado-pedido" style="padding-top:0;">
+      <div class="contenedor">
+        <div class="seccion-cabecera">
+          <p class="etiqueta-eyebrow">RF-08 · RF-09</p>
+          <h2>Estado del pedido e inventario</h2>
+        </div>
+        <div class="tarjeta">
+          <ol class="stepper-pedido" id="stepper-pedido">
+            <li class="paso-pedido activo" data-estado="pendiente"><span class="punto">1</span><span class="texto">Pendiente</span></li>
+            <li class="paso-pedido" data-estado="pagado"><span class="punto">2</span><span class="texto">Pagado</span></li>
+            <li class="paso-pedido" data-estado="preparacion"><span class="punto">3</span><span class="texto">En preparación</span></li>
+            <li class="paso-pedido" data-estado="enviado"><span class="punto">4</span><span class="texto">Enviado</span></li>
+            <li class="paso-pedido" data-estado="entregado"><span class="punto">5</span><span class="texto">Entregado</span></li>
+          </ol>
+          <p id="nota-estado-pedido">Aún no has confirmado ningún pedido.</p>
+        </div>
+        <h3 style="margin-top:2.2rem;font-size:1rem;">Inventario en tiempo real</h3>
+        <div class="inventario-lista" id="inventario-lista"></div>
+      </div>
+    </section>
+
+    <!-- WISHLIST -->
+    <section class="seccion" id="wishlist" style="padding-top:0;">
+      <div class="contenedor">
+        <div class="seccion-cabecera">
+          <p class="etiqueta-eyebrow">RF-14</p>
+          <h2>Lista de deseos</h2>
+        </div>
+        <div class="wishlist-lista" id="wishlist-lista">
+          <p class="wishlist-vacio">Aún no has guardado productos.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- DRAWER CARRITO -->
+  <div class="carrito-overlay" id="carrito-overlay"></div>
+  <aside class="carrito-drawer" id="carrito-drawer" aria-label="Carrito de compras" aria-hidden="true">
+    <div class="carrito-cabecera">
+      <strong>Tu carrito</strong>
+      <button class="boton-icono" id="btn-cerrar-carrito" aria-label="Cerrar carrito">✕</button>
+    </div>
+    <ul class="carrito-lista" id="lista-carrito">
+      <li class="carrito-vacio" id="carrito-vacio-msg">Tu carrito está vacío.</li>
+    </ul>
+    <div class="carrito-resumen">
+      <div class="fila-resumen"><span>Subtotal</span><span id="carrito-subtotal">$0</span></div>
+      <a href="carrito.html" class="boton boton-primario" id="btn-ir-checkout">Ver carrito y pagar</a>
+    </div>
+  </aside>
+
+  <footer class="site-footer">
+    <div class="contenedor footer-principal">
+      <div><a class="logo logo-footer" href="#inicio">Mercado <em>UMB</em></a><p>Un espacio para descubrir, apoyar y hacer crecer el talento emprendedor universitario.</p></div>
+      <div><strong>Explorar</strong><a href="#categorias">Categorías</a><a href="#ofertas">Ofertas y destacados</a><a href="#nuevos">Novedades</a></div>
+      <div><strong>Tu cuenta</strong><a href="login.html">Ingresar</a><a href="registro.html">Crear cuenta</a><a href="pedidos.html">Mis pedidos</a></div>
+      <div><strong>Ayuda</strong><a href="mailto:soporte@mercadoumb.example">Contacto y soporte</a><a href="mi-cuenta.html">Privacidad y cuenta</a><a href="vender.html">Vender en Mercado UMB</a></div>
+    </div>
+    <div class="contenedor footer-bottom"><span>© 2026 Mercado UMB · Universidad Manuela Beltrán</span><span>Hecho para la comunidad universitaria.</span></div>
+  </footer>
+
+  <div class="toast-contenedor" id="toast-contenedor" aria-live="polite"></div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="marketplace/supabase-config.js"></script>
+  <script src="marketplace/auth.js"></script>
+  <script src="marketplace/script.js"></script>
+</body>
+</html>
