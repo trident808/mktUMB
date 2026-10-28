@@ -890,3 +890,56 @@ header nav,
   }
 }
 
+/* Productos más pequeños en cuadrícula */
+.catalogo-estante {
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+    gap: 12px !important;
+}
+
+.catalogo {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 12px !important;
+}
+
+.producto-card {
+    min-width: 0;
+    overflow: hidden;
+}
+
+.producto-imagen {
+    aspect-ratio: 1 / 1 !important;
+    max-height: 160px !important;
+}
+
+.producto-cuerpo {
+    padding: 9px !important;
+    gap: 4px !important;
+}
+
+.producto-cuerpo h3 {
+    font-size: 0.82rem !important;
+    min-height: 2.4em;
+}
+
+.precio-etiqueta {
+    font-size: 1rem !important;
+}
+
+@media (min-width: 768px) and (max-width: 1199px) {
+    .catalogo-estante,
+    .catalogo {
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    }
+}
+
+@media (max-width: 767px) {
+    .catalogo-estante,
+    .catalogo {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 10px !important;
+    }
+
+    .producto-imagen {
+        max-height: 140px !important;
+    }
+}
