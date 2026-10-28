@@ -890,56 +890,72 @@ header nav,
   }
 }
 
-/* Productos más pequeños en cuadrícula */
-.catalogo-estante {
+/* Cuadrícula de productos */
+.catalogo-estante,
+.catalogo {
     grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
     gap: 12px !important;
+    align-items: stretch;
 }
 
-.catalogo {
-    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
-    gap: 12px !important;
-}
-
+/* Tarjetas uniformes */
 .producto-card {
     min-width: 0;
+    height: 100%;
+    min-height: 320px;
+    display: flex;
+    flex-direction: column;
     overflow: hidden;
 }
 
+/* Imágenes cuadradas */
 .producto-imagen {
+    display: block;
+    width: 100%;
     aspect-ratio: 1 / 1 !important;
-    max-height: 160px !important;
+    height: auto;
+    max-height: none !important;
+    object-fit: cover;
+    flex-shrink: 0;
 }
 
+/* Contenido compacto */
 .producto-cuerpo {
-    padding: 9px !important;
-    gap: 4px !important;
+    padding: 8px !important;
+    gap: 5px !important;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
 }
 
 .producto-cuerpo h3 {
-    font-size: 0.82rem !important;
-    min-height: 2.4em;
+    font-size: 0.78rem !important;
+    line-height: 1.3 !important;
+    min-height: 2.6em;
 }
 
 .precio-etiqueta {
-    font-size: 1rem !important;
+    font-size: 0.9rem !important;
 }
 
+/* Tablet */
 @media (min-width: 768px) and (max-width: 1199px) {
     .catalogo-estante,
     .catalogo {
-        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
     }
 }
 
+/* Celular */
 @media (max-width: 767px) {
     .catalogo-estante,
     .catalogo {
         grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-        gap: 10px !important;
+        gap: 8px !important;
     }
 
-    .producto-imagen {
-        max-height: 140px !important;
+    .producto-card {
+        min-height: 300px;
     }
 }
