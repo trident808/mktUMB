@@ -1163,7 +1163,7 @@ header nav,
   }
 
   .producto-cuerpo h3 {
-    min-height: 2.7em;
+    min-height: 4px;
     font-size: .77rem !important;
     line-height: 1.35 !important;
   }
