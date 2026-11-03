@@ -211,25 +211,123 @@
     await cargarProductos();
 
     // Pedidos recibidos
-    const { data: pedidos, error: errPed } = await UMB.db.rpc("pedidos_de_mi_tienda");
-    const tbody = $("#pedidos-recibidos");
-    if (errPed) {
-      tbody.innerHTML = `<tr><td colspan="6">${esc(UMB.traducirError(errPed))}</td></tr>`;
-    } else if (!pedidos.length) {
-      tbody.innerHTML = `<tr><td colspan="6" class="muted">Todavía no has recibido pedidos.</td></tr>`;
-    } else {
-      $("#total-pedidos").textContent = new Set(pedidos.map((p) => p.pedido_id)).size;
-      tbody.innerHTML = pedidos.map((p) => `
-        <tr>
-          <td><span class="codigo">${esc(p.codigo)}</span><br><small class="muted">${UMB.fecha(p.creado_en, true)}</small></td>
-          <td class="envolver">${esc(p.producto)} × ${p.cantidad}</td>
-          <td>${UMB.dinero(p.precio * p.cantidad)}</td>
-          <td class="envolver">${esc(p.nombre_entrega)}<br><a class="enlace" href="https://wa.me/57${esc(String(p.telefono_entrega).replace(/\D/g, "").replace(/^57/, ""))}" target="_blank" rel="noopener">${esc(p.telefono_entrega)}</a></td>
-          <td class="envolver">${esc(p.direccion_entrega)}</td>
-          <td><span class="estado estado-${esc(p.estado)}">${esc(p.estado)}</span></td>
-        </tr>`).join("");
+    await cargarPedidos();
+  }
+
+  /* ---------- Pedidos recibidos ---------- */
+
+  let pedidosAgrupados = [];
+  let filtroPedidos = "activos";
+
+  async function cargarPedidos() {
+    const cont = $("#pedidos-recibidos");
+    const { data, error } = await UMB.db.rpc("pedidos_de_mi_tienda");
+    if (error) {
+      cont.innerHTML = `<p class="mensaje error">${esc(UMB.traducirError(error))}</p>`;
+      return;
+    }
+    // La función devuelve una fila por producto: agrupar por pedido.
+    const mapa = new Map();
+    for (const f of data || []) {
+      if (!mapa.has(f.pedido_id)) mapa.set(f.pedido_id, { ...f, items: [] });
+      const g = mapa.get(f.pedido_id);
+      g.items.push({ nombre: f.producto, cantidad: f.cantidad, precio: Number(f.precio), estado: f.estado });
+      if (new Date(f.actualizado_en) > new Date(g.actualizado_en)) g.actualizado_en = f.actualizado_en;
+    }
+    pedidosAgrupados = [...mapa.values()].map((g) => {
+      const vivos = g.items.filter((i) => i.estado !== "cancelado");
+      const orden = ["pendiente", "confirmado", "enviado", "entregado"];
+      g.estado = vivos.length ? orden[Math.min(...vivos.map((i) => orden.indexOf(i.estado)))] : "cancelado";
+      g.total = vivos.reduce((s, i) => s + i.precio * i.cantidad, 0);
+      return g;
+    });
+    $("#total-pedidos").textContent = pedidosAgrupados.length;
+    const activos = pedidosAgrupados.filter((p) => ["pendiente", "confirmado", "enviado"].includes(p.estado)).length;
+    $("#n-activos").textContent = activos ? `(${activos})` : "";
+    pintarPedidos();
+  }
+
+  function accionesVendedor(p) {
+    const b = (estado, texto, clase = "btn-linea") =>
+      `<button class="btn ${clase} btn-sm" type="button" data-pedido="${esc(p.pedido_id)}" data-estado="${estado}">${texto}</button>`;
+    switch (p.estado) {
+      case "pendiente":
+        return b("confirmado", "Confirmar pedido", "btn-primario") + b("cancelado", "Cancelar", "btn-peligro");
+      case "confirmado":
+        return b("enviado", "Marcar como enviado", "btn-primario") + b("entregado", "Ya lo entregué") + b("cancelado", "Cancelar", "btn-peligro");
+      case "enviado":
+        return b("entregado", "Ya lo entregué", "btn-primario") + '<p class="nota">O espera a que el cliente confirme que lo recibió.</p>';
+      case "entregado":
+        return `<span class="confirmado-por">✓ Entregado · ${p.entrega_confirmada_por === "comprador" ? "el cliente confirmó que lo recibió" : "marcado por ti"}</span>`;
+      default:
+        return '<span class="muted">Pedido cancelado. Las unidades volvieron a tu inventario.</span>';
     }
   }
+
+  function pintarPedidos() {
+    const cont = $("#pedidos-recibidos");
+    UMB.$$("[data-filtro]").forEach((x) => x.setAttribute("aria-pressed", String(x.dataset.filtro === filtroPedidos)));
+    const lista = pedidosAgrupados.filter((p) =>
+      filtroPedidos === "todos" ? true
+        : filtroPedidos === "activos" ? ["pendiente", "confirmado", "enviado"].includes(p.estado)
+        : p.estado === filtroPedidos);
+
+    if (!pedidosAgrupados.length) {
+      cont.innerHTML = `<div class="vacio"><div class="vacio-icono">📦</div><p>Todavía no has recibido pedidos. Cuando alguien compre tus productos, aparecerán aquí.</p></div>`;
+      return;
+    }
+    if (!lista.length) {
+      cont.innerHTML = `<div class="vacio"><p>No hay pedidos en esta lista.</p></div>`;
+      return;
+    }
+    cont.innerHTML = lista.map((p) => {
+      const wa = UMB.whatsapp(p.telefono_entrega, `Hola ${p.nombre_entrega.split(" ")[0]}, te escribo de Marketplace UMB por tu pedido ${p.codigo}.`);
+      return `
+      <article class="pedido">
+        <div class="pedido-cabecera">
+          <div><span>Pedido</span><strong class="codigo">${esc(p.codigo)}</strong></div>
+          <div><span>Fecha</span><strong>${UMB.fecha(p.creado_en, true)}</strong></div>
+          <div><span>Valor</span><strong>${UMB.dinero(p.total)}</strong></div>
+          ${UMB.estadoHTML(p.estado)}
+        </div>
+        <div class="pedido-datos">
+          <div><span>Cliente</span><strong>${esc(p.nombre_entrega)}</strong></div>
+          <div><span>Celular</span><strong>${esc(p.telefono_entrega)}</strong></div>
+          <div><span>Dirección</span><strong>${esc(p.direccion_entrega)}</strong></div>
+          <div><span>Pago</span><strong>${esc(UMB.PAGOS[p.metodo_pago] || p.metodo_pago || "—")}</strong></div>
+          ${p.notas ? `<div style="grid-column:1/-1"><span>Indicaciones</span><strong>${esc(p.notas)}</strong></div>` : ""}
+        </div>
+        <ul class="pedido-items">
+          ${p.items.map((i) => `<li><span>${esc(i.nombre)} × ${i.cantidad}${i.estado === "cancelado" ? ' <span class="muted">(cancelado)</span>' : ""}</span><span>${UMB.dinero(i.precio * i.cantidad)}</span></li>`).join("")}
+        </ul>
+        <div class="pedido-pie">
+          ${UMB.pasosHTML(p.estado)}
+          <div class="acciones-pedido">
+            ${accionesVendedor(p)}
+            ${wa && !["entregado", "cancelado"].includes(p.estado) ? `<a class="btn btn-whatsapp btn-sm" href="${wa}" target="_blank" rel="noopener">WhatsApp</a>` : ""}
+          </div>
+        </div>
+      </article>`;
+    }).join("");
+  }
+
+  document.addEventListener("click", async (e) => {
+    const f = e.target.closest("[data-filtro]");
+    if (f) { filtroPedidos = f.dataset.filtro; pintarPedidos(); return; }
+
+    const b = e.target.closest("[data-pedido][data-estado]");
+    if (!b || !$("#pedidos-recibidos")?.contains(b)) return;
+    if (b.dataset.estado === "cancelado" && !UMB.confirmarToque(b, "¿Cancelar? Toca otra vez")) return;
+    UMB.cargando(b, true);
+    const { error } = await UMB.db.rpc("actualizar_estado_pedido", { p_pedido: b.dataset.pedido, p_estado: b.dataset.estado });
+    if (error) {
+      UMB.cargando(b, false);
+      return UMB.toast(UMB.traducirError(error), { error: true });
+    }
+    const textos = { confirmado: "Pedido confirmado. Avísale al cliente.", enviado: "Pedido marcado como enviado.", entregado: "¡Pedido entregado!", cancelado: "Pedido cancelado. Las unidades volvieron a tu inventario." };
+    UMB.toast(textos[b.dataset.estado] || "Pedido actualizado.");
+    await cargarPedidos();
+  });
 
   if (document.body.dataset.pagina === "vender") iniciar();
 })();

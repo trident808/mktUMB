@@ -8,8 +8,6 @@
 
   const ROLES = { cliente: "Comprador", vendedor: "Vendedor", admin: "Administrador" };
   const PROVEEDORES = { email: "Correo y contraseña", google: "Google" };
-  const ESTADOS = { pendiente: "Pendiente", confirmado: "Confirmado", enviado: "Enviado", entregado: "Entregado", cancelado: "Cancelado" };
-  const PAGOS = { contraentrega: "Pago contra entrega", transferencia: "Transferencia bancaria", nequi: "Nequi / Daviplata" };
 
   /* ======================= Mi cuenta ======================= */
 
@@ -109,37 +107,123 @@
 
   /* ======================= Mis pedidos ======================= */
 
+  const ORDEN = ["pendiente", "confirmado", "enviado", "entregado"];
+  const estadoGrupo = (items) => {
+    const vivos = items.filter((i) => i.estado !== "cancelado");
+    return vivos.length ? ORDEN[Math.min(...vivos.map((i) => ORDEN.indexOf(i.estado)))] : "cancelado";
+  };
+
+  function textoEvento(e, nombresTienda) {
+    const tienda = nombresTienda.get(e.tienda_id) || "El vendedor";
+    if (e.actor === "comprador") {
+      if (e.estado === "entregado") return nombresTienda.size > 1 && e.tienda_id ? `Confirmaste que recibiste lo de ${tienda}` : "Confirmaste que recibiste el pedido";
+      if (e.estado === "cancelado") return nombresTienda.size > 1 && e.tienda_id ? `Cancelaste los productos de ${tienda}` : "Cancelaste el pedido";
+      return "Actualizaste el pedido";
+    }
+    const quien = e.actor === "admin" ? "Administración" : tienda;
+    return { confirmado: `${quien} confirmó tu pedido`, enviado: `${quien} envió tu pedido`, entregado: `${quien} marcó el pedido como entregado`, cancelado: `${quien} canceló el pedido` }[e.estado] || `${quien} actualizó el pedido`;
+  }
+
   async function iniciarPedidos() {
     const sesion = await UMB.exigirSesion();
     if (!sesion) return;
     const cont = $("#lista-pedidos");
-    const { data, error } = await UMB.db.from("pedidos")
-      .select("id, codigo, estado, subtotal, envio, total, metodo_pago, direccion_entrega, creado_en, pedido_items(nombre, precio, cantidad)")
-      .eq("usuario_id", sesion.user.id)
-      .order("creado_en", { ascending: false });
 
-    if (error) {
-      cont.innerHTML = `<p class="mensaje error">${esc(UMB.traducirError(error))}</p>`;
-      return;
+    async function cargar() {
+      let { data, error } = await UMB.db.from("pedidos")
+        .select("id, codigo, estado, subtotal, envio, total, metodo_pago, direccion_entrega, creado_en, " +
+                "pedido_items(nombre, precio, cantidad, estado, tienda_id, tiendas(nombre, telefono)), " +
+                "pedido_eventos(estado, actor, tienda_id, creado_en)")
+        .eq("usuario_id", sesion.user.id)
+        .order("creado_en", { ascending: false });
+
+      if (error) {
+        cont.innerHTML = `<p class="mensaje error">${esc(UMB.traducirError(error))}</p>`;
+        return;
+      }
+      if (!data.length) {
+        cont.innerHTML = `<div class="vacio"><div class="vacio-icono">📦</div><h2>Aún no tienes pedidos</h2><p>Cuando compres algo, aquí verás su estado.</p><a class="btn btn-primario" href="index.html#catalogo">Ir al catálogo</a></div>`;
+        return;
+      }
+
+      cont.innerHTML = data.map((p) => {
+        // Agrupar los productos por tienda: cada tienda avanza su parte.
+        const grupos = new Map();
+        for (const i of p.pedido_items || []) {
+          const k = i.tienda_id || "sin-tienda";
+          if (!grupos.has(k)) grupos.set(k, { tienda_id: i.tienda_id, tienda: i.tiendas?.nombre || "Marketplace UMB", telefono: i.tiendas?.telefono || "", items: [] });
+          grupos.get(k).items.push(i);
+        }
+        const nombres = new Map([...grupos.values()].map((g) => [g.tienda_id, g.tienda]));
+        const puedeCancelar = (p.pedido_items || []).some((i) => i.estado === "pendiente");
+        const eventos = [...(p.pedido_eventos || [])].sort((a, b) => new Date(b.creado_en) - new Date(a.creado_en));
+        // Si se canceló una parte, mostrar lo que realmente queda por pagar.
+        const activo = (p.pedido_items || []).filter((i) => i.estado !== "cancelado").reduce((t, i) => t + Number(i.precio) * i.cantidad, 0);
+        const totalReal = activo ? activo + Number(p.envio || 0) : 0;
+        const totalHTML = totalReal !== Number(p.total)
+          ? `${UMB.dinero(totalReal)} <s class="muted" style="font-weight:400;font-size:.85em">${UMB.dinero(p.total)}</s>`
+          : UMB.dinero(p.total);
+
+        return `
+        <article class="pedido">
+          <div class="pedido-cabecera">
+            <div><span>Pedido</span><strong class="codigo">${esc(p.codigo)}</strong></div>
+            <div><span>Fecha</span><strong>${UMB.fecha(p.creado_en, true)}</strong></div>
+            <div><span>Total</span><strong>${totalHTML}</strong></div>
+            ${UMB.estadoHTML(p.estado)}
+          </div>
+          ${[...grupos.values()].map((g) => {
+            const est = estadoGrupo(g.items);
+            const wa = UMB.whatsapp(g.telefono, `Hola, te escribo por mi pedido ${p.codigo} de Marketplace UMB.`);
+            const confirmo = (p.pedido_eventos || []).some((e) => e.estado === "entregado" && e.actor === "comprador" && e.tienda_id === g.tienda_id);
+            return `
+            <section class="grupo-tienda">
+              <div class="grupo-tienda-cabecera"><strong>${esc(g.tienda)}</strong>${UMB.estadoHTML(est)}</div>
+              ${UMB.pasosHTML(est)}
+              <ul class="pedido-items">
+                ${g.items.map((i) => `<li><span>${esc(i.nombre)} × ${i.cantidad}${i.estado === "cancelado" && est !== "cancelado" ? ' <span class="muted">(cancelado)</span>' : ""}</span><span>${UMB.dinero(i.precio * i.cantidad)}</span></li>`).join("")}
+              </ul>
+              <div class="acciones-pedido">
+                ${["confirmado", "enviado"].includes(est) ? `<button class="btn btn-primario btn-sm" type="button" data-recibido="${esc(p.id)}" data-tienda="${esc(g.tienda_id || "")}">Ya lo recibí</button>` : ""}
+                ${est === "entregado" ? `<span class="confirmado-por">✓ ${confirmo ? "Confirmaste que lo recibiste" : "El vendedor lo marcó como entregado"}</span>` : ""}
+                ${est === "pendiente" ? '<p class="nota">Esperando que el vendedor confirme tu pedido.</p>' : ""}
+                ${wa && !["entregado", "cancelado"].includes(est) ? `<a class="btn btn-whatsapp btn-sm" href="${wa}" target="_blank" rel="noopener">Escribir al vendedor</a>` : ""}
+              </div>
+            </section>`;
+          }).join("")}
+          <div class="pedido-pie" style="border-top:1px solid var(--borde);padding-top:1rem">
+            <ul class="pedido-items" style="padding:0">
+              <li><span class="muted">Envío</span><span>${Number(p.envio) ? UMB.dinero(p.envio) : "Gratis"}</span></li>
+              <li><span class="muted">${esc(UMB.PAGOS[p.metodo_pago] || p.metodo_pago)} · ${esc(p.direccion_entrega)}</span><span></span></li>
+            </ul>
+            ${puedeCancelar ? `<div class="acciones-pedido"><button class="btn btn-peligro btn-sm" type="button" data-cancelar="${esc(p.id)}">Cancelar pedido</button></div>` : ""}
+            ${eventos.length ? `<ul class="historial">${eventos.map((e) => `<li><time>${UMB.fecha(e.creado_en, true)}</time>${esc(textoEvento(e, nombres))}</li>`).join("")}</ul>` : ""}
+          </div>
+        </article>`;
+      }).join("");
     }
-    if (!data.length) {
-      cont.innerHTML = `<div class="vacio"><div class="vacio-icono">📦</div><h2>Aún no tienes pedidos</h2><p>Cuando compres algo, aquí verás su estado.</p><a class="btn btn-primario" href="index.html#catalogo">Ir al catálogo</a></div>`;
-      return;
-    }
-    cont.innerHTML = data.map((p) => `
-      <article class="pedido">
-        <div class="pedido-cabecera">
-          <div><span>Pedido</span><strong class="codigo">${esc(p.codigo)}</strong></div>
-          <div><span>Fecha</span><strong>${UMB.fecha(p.creado_en, true)}</strong></div>
-          <div><span>Total</span><strong>${UMB.dinero(p.total)}</strong></div>
-          <span class="estado estado-${esc(p.estado)}">${ESTADOS[p.estado] || esc(p.estado)}</span>
-        </div>
-        <ul class="pedido-items">
-          ${(p.pedido_items || []).map((i) => `<li><span>${esc(i.nombre)} × ${i.cantidad}</span><span>${UMB.dinero(i.precio * i.cantidad)}</span></li>`).join("")}
-          <li><span class="muted">Envío</span><span>${Number(p.envio) ? UMB.dinero(p.envio) : "Gratis"}</span></li>
-          <li><span class="muted">${esc(PAGOS[p.metodo_pago] || p.metodo_pago)} · ${esc(p.direccion_entrega)}</span><span></span></li>
-        </ul>
-      </article>`).join("");
+
+    cont.addEventListener("click", async (e) => {
+      const rec = e.target.closest("[data-recibido]");
+      const can = e.target.closest("[data-cancelar]");
+      if (rec) {
+        UMB.cargando(rec, true);
+        const { error } = await UMB.db.rpc("confirmar_recibido", { p_pedido: rec.dataset.recibido, p_tienda: rec.dataset.tienda || null });
+        if (error) { UMB.cargando(rec, false); return UMB.toast(UMB.traducirError(error), { error: true }); }
+        UMB.toast("¡Gracias! Confirmaste que recibiste tu pedido.");
+        await cargar();
+      }
+      if (can) {
+        if (!UMB.confirmarToque(can, "¿Cancelar? Toca otra vez")) return;
+        UMB.cargando(can, true);
+        const { error } = await UMB.db.rpc("cancelar_pedido", { p_pedido: can.dataset.cancelar });
+        if (error) { UMB.cargando(can, false); return UMB.toast(UMB.traducirError(error), { error: true }); }
+        UMB.toast("Pedido cancelado.");
+        await cargar();
+      }
+    });
+
+    await cargar();
   }
 
   const pagina = document.body.dataset.pagina;

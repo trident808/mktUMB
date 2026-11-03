@@ -103,7 +103,10 @@
       [/user already registered|already been registered/i, "Ya existe una cuenta con este correo. Inicia sesión o recupera tu contraseña."],
       [/password should be at least/i, "La contraseña debe tener al menos 8 caracteres."],
       [/weak password|password is known/i, "Esa contraseña es muy fácil de adivinar. Usa una más segura."],
-      [/rate limit|too many requests|for security purposes/i, "Demasiados intentos seguidos. Espera un momento e inténtalo de nuevo."],
+      [/email rate limit/i, "El servidor alcanzó el límite de correos por hora. Espera un rato o pide al administrador que configure un SMTP propio en Supabase."],
+      [/for security purposes.*?(\d+)\s*seconds?/i, (m, seg) => `Por seguridad, espera ${seg} segundos antes de volver a intentarlo con este correo.`],
+      [/for security purposes/i, "Por seguridad, espera un minuto antes de volver a intentarlo con este correo."],
+      [/rate limit|too many requests/i, "Demasiados intentos seguidos. Espera unos minutos e inténtalo de nuevo."],
       [/unable to validate email|invalid email/i, "El correo electrónico no es válido."],
       [/new password should be different/i, "La nueva contraseña debe ser distinta a la anterior."],
       [/failed to fetch|network/i, "No hay conexión con el servidor. Revisa tu internet."],
@@ -111,11 +114,16 @@
       [/provider is not enabled|unsupported provider/i, "El inicio con Google aún no está activado en Supabase."],
       [/unable to exchange external code/i, "Google rechazó la conexión: revisa que el Client Secret pegado en Supabase sea el correcto."],
       [/error getting user email|missing email/i, "Google no entregó el correo. Revisa que la app de Google pida el permiso de correo (email)."],
-      [/database error saving new user/i, "La cuenta no se pudo guardar en la base de datos. Revisa que schema.sql se haya ejecutado completo."],
+      [/solo se permiten correos/i, "Solo pueden registrarse estudiantes de la UMB con su correo institucional."],
+      [/database error saving new user/i, "No se pudo crear la cuenta. Recuerda usar tu correo institucional de la UMB (también al entrar con Google)."],
       [/could not find the function|does not exist/i, "Falta configurar la base de datos (ejecuta schema.sql en Supabase)."],
       [/row-level security|permission denied/i, "No tienes permiso para realizar esta acción."]
     ];
-    for (const [re, texto] of tabla) if (re.test(m)) return texto;
+    console.warn("[UMB] Mensaje original del servidor:", m);
+    for (const [re, texto] of tabla) {
+      const r = m.match(re);
+      if (r) return typeof texto === "function" ? texto(...r) : texto;
+    }
     return m || "Ocurrió un error inesperado.";
   };
 
@@ -213,16 +221,6 @@
   };
   UMB.iconos = ICONOS;
 
-  const DEMO = [
-    { id: "demo-1", nombre: "Café orgánico Tierra Alta 500 g", tienda: "Finca Tierra Alta", categoria: "Alimentos y bebidas", precio: 38000, rating: 4.8, resenas: 132, stock: 24, imagen: "marketplace/img/cafe.jpg", descripcion: "Café de origen único, cultivado a 1.800 m s. n. m. y tostado en pequeños lotes por la familia productora." },
-    { id: "demo-2", nombre: "Vasija artesanal de barro", tienda: "Barro & Fuego", categoria: "Artesanías", precio: 95000, rating: 4.6, resenas: 41, stock: 9, imagen: "marketplace/img/vasija.jpg", descripcion: "Vasija de barro cocido, moldeada y pintada a mano por artesanos de Ráquira." },
-    { id: "demo-3", nombre: "Mochila tejida wayuu", tienda: "Telar Wayuu", categoria: "Moda y accesorios", precio: 180000, rating: 5, resenas: 87, stock: 5, icono: "textil", descripcion: "Mochila tejida a mano en algodón, con patrones tradicionales wayuu." },
-    { id: "demo-4", nombre: "Miel pura de abejas 350 ml", tienda: "Apiario San Vicente", categoria: "Alimentos y bebidas", precio: 22000, rating: 4.7, resenas: 64, stock: 40, icono: "miel", descripcion: "Miel 100 % pura extraída en frío, sin aditivos ni procesos industriales." },
-    { id: "demo-5", nombre: "Aretes de filigrana en plata", tienda: "Joyería Mompox", categoria: "Moda y accesorios", precio: 145000, rating: 4.9, resenas: 29, stock: 7, icono: "joyeria", descripcion: "Aretes elaborados con la técnica tradicional de filigrana momposina." },
-    { id: "demo-6", nombre: "Chocolate 70 % cacao 100 g", tienda: "Cacao Sierra Nevada", categoria: "Alimentos y bebidas", precio: 15000, rating: 4.5, resenas: 58, stock: 60, icono: "chocolate", descripcion: "Barra de chocolate oscuro elaborada con cacao fino de aroma." },
-    { id: "demo-7", nombre: "Velas de cera de abeja (x3)", tienda: "Casa Cera", categoria: "Hogar", precio: 48000, rating: 4.4, resenas: 19, stock: 15, icono: "vela", descripcion: "Velas artesanales de cera de abeja natural, de larga duración." },
-    { id: "demo-8", nombre: "Jabón natural de avena 100 g", tienda: "Raíz Botánica", categoria: "Belleza natural", precio: 12000, rating: 4.6, resenas: 73, stock: 33, icono: "jabon", descripcion: "Jabón artesanal elaborado con avena e ingredientes vegetales." }
-  ];
 
   UMB.categorias = [
     { nombre: "Alimentos y bebidas", icono: "☕" },
@@ -249,13 +247,12 @@
       resenas: Number(p.resenas || 0),
       stock: Number(p.stock ?? 0),
       imagen: esIcono ? "" : img,
-      icono: esIcono ? img.slice(6) : p.icono || "",
-      demo: Boolean(p.demo)
+      icono: esIcono ? img.slice(6) : p.icono || ""
     };
   }
 
   let cacheProductos = null;
-  /** Devuelve { productos, origen: "supabase" | "demo", error } */
+  /** Devuelve { productos, origen: "supabase" | "error", error }. Solo productos reales de la base de datos. */
   UMB.cargarProductos = async function () {
     if (cacheProductos) return cacheProductos;
     if (UMB.db) {
@@ -271,19 +268,15 @@
         }
         if (error) throw error;
         const lista = (data || []).filter((p) => p.activo !== false).map(normalizar);
-        if (!lista.length) {
-          cacheProductos = { productos: DEMO.map((p) => normalizar({ ...p, demo: true })), origen: "demo", error: "vacio" };
-          return cacheProductos;
-        }
         cacheProductos = { productos: lista, origen: "supabase", error: null };
         return cacheProductos;
       } catch (e) {
         console.warn("[UMB] No se pudo leer el catálogo de Supabase:", e.message || e);
-        cacheProductos = { productos: DEMO.map((p) => normalizar({ ...p, demo: true })), origen: "demo", error: e };
+        cacheProductos = { productos: [], origen: "error", error: e };
         return cacheProductos;
       }
     }
-    cacheProductos = { productos: DEMO.map((p) => normalizar({ ...p, demo: true })), origen: "demo", error: "sin-conexion" };
+    cacheProductos = { productos: [], origen: "error", error: "sin-conexion" };
     return cacheProductos;
   };
 
@@ -341,6 +334,47 @@
         UMB.toast(ahora ? "Guardado en tus favoritos." : "Quitado de tus favoritos.");
       }
     });
+  };
+
+  /* ======================= Estados de pedidos ======================= */
+
+  UMB.ESTADOS = {
+    pendiente: "Pendiente",
+    confirmado: "Confirmado",
+    enviado: "Enviado",
+    entregado: "Entregado",
+    cancelado: "Cancelado"
+  };
+  UMB.PAGOS = { contraentrega: "Pago contra entrega", transferencia: "Transferencia bancaria", nequi: "Nequi / Daviplata" };
+
+  UMB.estadoHTML = (estado) =>
+    `<span class="estado estado-${UMB.esc(estado)}">${UMB.ESTADOS[estado] || UMB.esc(estado)}</span>`;
+
+  /** Barra de progreso: Recibido → Confirmado → Enviado → Entregado */
+  UMB.pasosHTML = (estado) => {
+    if (estado === "cancelado") return "";
+    const pasos = [["pendiente", "Recibido"], ["confirmado", "Confirmado"], ["enviado", "Enviado"], ["entregado", "Entregado"]];
+    const idx = pasos.findIndex(([k]) => k === estado);
+    return `<ol class="pasos" aria-label="Progreso: ${UMB.ESTADOS[estado] || estado}">${pasos.map(([, txt], i) =>
+      `<li class="paso${i <= idx ? " hecho" : ""}${i === idx ? " actual" : ""}"><i></i><span>${txt}</span></li>`).join("")}</ol>`;
+  };
+
+  /** Enlace a WhatsApp (números de Colombia). */
+  UMB.whatsapp = (telefono, texto = "") => {
+    let n = String(telefono || "").replace(/\D/g, "");
+    if (!n) return "";
+    if (n.length === 10) n = "57" + n;
+    return `https://wa.me/${n}${texto ? "?text=" + encodeURIComponent(texto) : ""}`;
+  };
+
+  /** Botón que pide un segundo toque para confirmar (en vez de un diálogo). */
+  UMB.confirmarToque = (boton, texto = "¿Seguro? Toca otra vez") => {
+    if (boton.dataset.confirmar === "1") return true;
+    const original = boton.textContent;
+    boton.dataset.confirmar = "1";
+    boton.textContent = texto;
+    setTimeout(() => { boton.dataset.confirmar = ""; boton.textContent = original; }, 4000);
+    return false;
   };
 
   /* ======================= Sesión y perfil ======================= */
@@ -426,6 +460,46 @@
     if (error) console.warn("[UMB] No se registró el acceso:", error.message);
   };
 
+  /* ======================= Solo correos institucionales ======================= */
+
+  let dominiosPromesa = null;
+  /** Dominios permitidos configurados en Supabase (vacío = cualquiera). */
+  UMB.dominios = () => {
+    if (!dominiosPromesa) {
+      dominiosPromesa = UMB.db
+        ? UMB.db.from("dominios_permitidos").select("dominio").then(({ data, error }) => (error ? [] : (data || []).map((d) => d.dominio)))
+        : Promise.resolve([]);
+    }
+    return dominiosPromesa;
+  };
+
+  UMB.correoPermitido = async (correo) => {
+    const lista = await UMB.dominios();
+    if (!lista.length) return true;
+    const dom = String(correo || "").toLowerCase().split("@")[1] || "";
+    return lista.some((d) => dom === d || dom.endsWith("." + d));
+  };
+
+  UMB.textoDominios = (lista) => lista.map((d) => "@" + d).join(" o ");
+
+  /**
+   * Si el registro está limitado a correos de la UMB, cerrar la sesión de
+   * cuentas antiguas con otro dominio (los administradores sí pueden entrar).
+   */
+  UMB.verificarIngreso = async (sesion) => {
+    const clave = "umb_ingreso_ok_" + sesion.user.id;
+    try { if (sessionStorage.getItem(clave)) return true; } catch { /* nada */ }
+    const { data, error } = await UMB.db.rpc("puedo_ingresar");
+    if (error || data !== false) {
+      try { sessionStorage.setItem(clave, "1"); } catch { /* nada */ }
+      return true;
+    }
+    try { sessionStorage.removeItem("umb_registrar_acceso"); } catch { /* nada */ }
+    await UMB.db.auth.signOut();
+    location.replace("login.html?bloqueado=1");
+    return false;
+  };
+
   /* ======================= Encabezado ======================= */
 
   async function pintarCabecera() {
@@ -436,6 +510,7 @@
     zonaCon.forEach((el) => (el.hidden = !s));
     if (!s) return;
 
+    if (!(await UMB.verificarIngreso(s))) return;
     await UMB.registrarAccesoPendiente(s);
     const p = await UMB.perfil();
     const boton = $("#usuario-boton");
