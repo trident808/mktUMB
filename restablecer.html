@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Nueva contraseña | Marketplace UMB</title>
+  <meta name="description" content="Crea una nueva contraseña para tu cuenta.">
+  <meta name="theme-color" content="#c8102e">
+  <meta property="og:title" content="Nueva contraseña | Marketplace UMB">
+  <meta property="og:description" content="Crea una nueva contraseña para tu cuenta.">
+  <meta property="og:image" content="marketplace/img/imagen-principal.jpg">
+  <link rel="icon" href="marketplace/img/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="marketplace/css/styles.css">
+  <script>try{var t=JSON.parse(localStorage.getItem("umb_tema"));if(t==="claro"||t==="oscuro")document.documentElement.dataset.tema=t}catch(e){}</script>
+</head>
+<body data-pagina="restablecer">
+  <a class="saltar" href="#contenido">Saltar al contenido</a>
+  <header class="cabecera">
+    <div class="contenedor cabecera-fila">
+      <a class="logo" href="index.html" aria-label="Marketplace UMB, inicio">
+        <span class="logo-marca"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 9.5 5.5 4h13L20 9.5M4 9.5h16M4 9.5v.5a2.7 2.7 0 0 0 5.3 0 2.7 2.7 0 0 0 5.4 0 2.7 2.7 0 0 0 5.3 0v-.5M5.5 12.5V20h13v-7.5M10 20v-4.5h4V20" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></span>
+        <span class="logo-texto">Marketplace <em>UMB</em></span>
+      </a>
+      <form class="buscador" id="form-buscar" action="index.html" role="search">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/><path d="m16.5 16.5 4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        <input id="buscar" name="q" type="search" placeholder="Buscar productos o emprendimientos" aria-label="Buscar productos" autocomplete="off">
+      </form>
+      <nav class="nav-principal" id="nav-principal" aria-label="Navegación principal">
+        <a href="index.html#catalogo">Catálogo</a>
+        <a href="vender.html">Vender</a>
+        <a href="pedidos.html">Mis pedidos</a>
+        <a href="login.html" class="solo-movil" data-sin-sesion>Ingresar</a>
+        <a href="registro.html" class="solo-movil" data-sin-sesion>Crear cuenta</a>
+      </nav>
+      <div class="acciones">
+        <button class="btn-icono" id="btn-tema" type="button" aria-label="Cambiar tema"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></button>
+        <a class="btn-icono" href="carrito.html" aria-label="Carrito de compras"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 4h2l2.2 10.2a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 1.9-1.4L21 8H6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="10" cy="20" r="1.3" fill="currentColor"/><circle cx="17.5" cy="20" r="1.3" fill="currentColor"/></svg><span class="contador" data-contador-carrito></span></a>
+        <a class="btn btn-fantasma btn-sm solo-escritorio" href="login.html" data-sin-sesion>Ingresar</a>
+        <a class="btn btn-primario btn-sm solo-ancho" href="registro.html" data-sin-sesion>Crear cuenta</a>
+        <div class="usuario-menu" data-con-sesion hidden>
+          <button class="usuario-boton" id="usuario-boton" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Menú de tu cuenta"><span class="avatar">·</span></button>
+          <div class="menu-desplegable" id="usuario-desplegable" hidden>
+            <div class="menu-cabecera" id="menu-correo"></div>
+            <a href="mi-cuenta.html">👤 Mi cuenta</a>
+            <a href="pedidos.html">📦 Mis pedidos</a>
+            <a href="mi-cuenta.html#favoritos">♡ Favoritos</a>
+            <a href="vender.html">🏪 Mi tienda</a>
+            <a href="admin.html" data-solo-admin hidden>🛡️ Administración</a>
+            <hr>
+            <button type="button" data-cerrar-sesion>↩ Cerrar sesión</button>
+          </div>
+        </div>
+        <button class="btn-icono btn-menu-movil" id="btn-menu" type="button" aria-expanded="false" aria-controls="nav-principal" aria-label="Abrir menú"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+      </div>
+    </div>
+  </header>
+  <div class="toldo" aria-hidden="true"></div>
+
+  <main id="contenido">
+    <div class="pagina">
+      <div class="contenedor" style="max-width:460px">
+        <div class="tarjeta">
+          <h1 style="font-size:1.6rem">Crea una contraseña nueva</h1>
+          <p class="mensaje info" id="mensaje" role="status">Verificando el enlace…</p>
+          <div id="enlace-invalido" hidden>
+            <p class="muted">El enlace no es válido o ya venció. Solicita uno nuevo desde la página de inicio de sesión.</p>
+            <a class="btn btn-primario" href="login.html">Volver a iniciar sesión</a>
+          </div>
+          <form class="formulario" id="form-nueva-clave" hidden style="margin-top:1rem">
+            
+              <div class="campo">
+                <label for="clave">Nueva contraseña</label>
+                <div class="campo-clave">
+                  <input id="clave" name="clave" type="password" required minlength="8" autocomplete="new-password" data-fuerza="fuerza-clave">
+                  <button class="ver-clave" type="button" data-ver-clave="clave" aria-label="Mostrar contraseña" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8"/></svg></button>
+                </div><div class="fuerza" id="fuerza-clave"><i></i></div><small id="fuerza-clave-texto">Mínimo 8 caracteres.</small>
+              </div>
+            
+              <div class="campo">
+                <label for="nueva-clave2">Confirmar contraseña</label>
+                <div class="campo-clave">
+                  <input id="nueva-clave2" name="clave2" type="password" required minlength="8" autocomplete="new-password">
+                  <button class="ver-clave" type="button" data-ver-clave="nueva-clave2" aria-label="Mostrar contraseña" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8"/></svg></button>
+                </div>
+              </div>
+            <button class="btn btn-primario btn-bloque" type="submit">Guardar contraseña</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="pie">
+    <div class="contenedor pie-grid">
+      <div>
+        <a class="logo" href="index.html"><span class="logo-marca"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 9.5 5.5 4h13L20 9.5M4 9.5h16M4 9.5v.5a2.7 2.7 0 0 0 5.3 0 2.7 2.7 0 0 0 5.4 0 2.7 2.7 0 0 0 5.3 0v-.5M5.5 12.5V20h13v-7.5M10 20v-4.5h4V20" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></span><span>Marketplace <em>UMB</em></span></a>
+        <p style="margin-top:1rem;max-width:22rem;font-size:.92rem">El mercado de emprendimientos de la comunidad de la Universidad Manuela Beltrán.</p>
+      </div>
+      <div>
+        <h2>Comprar</h2>
+        <ul>
+          <li><a href="index.html#catalogo">Catálogo</a></li>
+          <li><a href="carrito.html">Carrito</a></li>
+          <li><a href="pedidos.html">Mis pedidos</a></li>
+        </ul>
+      </div>
+      <div>
+        <h2>Vender</h2>
+        <ul>
+          <li><a href="vender.html">Abrir mi tienda</a></li>
+          <li><a href="registro.html?rol=vendedor">Registro de vendedores</a></li>
+        </ul>
+      </div>
+      <div>
+        <h2>Cuenta</h2>
+        <ul>
+          <li><a href="login.html">Iniciar sesión</a></li>
+          <li><a href="registro.html">Crear cuenta</a></li>
+          <li><a href="privacidad.html">Tratamiento de datos</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="contenedor pie-inferior">
+      <span>© <span data-anio>2026</span> Marketplace UMB · Proyecto académico</span>
+      <a href="privacidad.html">Política de privacidad</a>
+    </div>
+  </footer>
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+  <script src="marketplace/js/config.js"></script>
+  <script src="marketplace/js/app.js"></script>
+  <script src="marketplace/js/auth.js"></script>
+</body>
+</html>
