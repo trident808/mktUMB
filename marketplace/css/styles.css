@@ -572,6 +572,32 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .estado-entregado { background: var(--verde-suave); color: var(--verde); }
 .estado-cancelado { background: var(--rojo-suave); color: var(--rojo); }
 
+/* ---------- Seguimiento de pedidos ---------- */
+
+.pasos { display: flex; gap: .35rem; list-style: none; margin: .75rem 0 .25rem; padding: 0; }
+.paso { flex: 1; display: grid; gap: .3rem; min-width: 0; }
+.paso i { display: block; height: 6px; border-radius: 6px; background: var(--superficie-2); border: 1px solid var(--borde); }
+.paso span { font-size: .72rem; color: var(--texto-suave); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.paso.hecho i { background: var(--verde); border-color: var(--verde); }
+.paso.hecho span { color: var(--tinta); }
+.paso.actual span { font-weight: 700; }
+
+.grupo-tienda { padding: 1rem 1.2rem; border-top: 1px solid var(--borde); }
+.grupo-tienda-cabecera { display: flex; flex-wrap: wrap; gap: .5rem 1rem; align-items: center; justify-content: space-between; }
+.grupo-tienda-cabecera strong { color: var(--tinta); }
+.grupo-tienda .pedido-items { padding: .25rem 0 0; }
+.acciones-pedido { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-top: .85rem; }
+.acciones-pedido .nota { margin: 0; }
+.confirmado-por { display: inline-flex; align-items: center; gap: .4rem; font-size: .88rem; color: var(--verde); font-weight: 600; margin-top: .75rem; }
+.historial { list-style: none; margin: .75rem 0 0; padding: .6rem 0 0; border-top: 1px dashed var(--borde); display: grid; gap: .3rem; font-size: .82rem; color: var(--texto-suave); }
+.historial time { color: var(--texto); font-weight: 600; margin-right: .35rem; }
+.pedido-datos { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: .6rem 1.25rem; padding: 1rem 1.2rem 0; font-size: .9rem; }
+.pedido-datos span { display: block; font-size: .75rem; color: var(--texto-suave); }
+.pedido-datos strong { color: var(--tinta); font-weight: 600; word-break: break-word; }
+.pedido-pie { padding: 0 1.2rem 1.1rem; }
+.btn-whatsapp { background: #1f9d55; color: #fff; }
+.btn-whatsapp:hover:not(:disabled) { background: #187a42; }
+
 /* ---------- Mi cuenta ---------- */
 
 .cuenta-grid { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 1.5rem; align-items: start; }
