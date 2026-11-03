@@ -124,13 +124,16 @@
             </form>
           </div>
           <section style="margin-top:2.5rem">
-            <h2>Pedidos recibidos</h2>
-            <div class="tabla-envoltura">
-              <table>
-                <thead><tr><th>Pedido</th><th>Producto</th><th>Valor</th><th>Cliente</th><th>Dirección</th><th>Estado</th></tr></thead>
-                <tbody id="pedidos-recibidos"><tr><td colspan="6" class="muted">Cargando…</td></tr></tbody>
-              </table>
+            <div class="seccion-cabecera" style="margin-bottom:1rem">
+              <div><h2 style="margin:0">Pedidos recibidos</h2><p>Avanza el estado a medida que preparas y entregas cada pedido.</p></div>
+              <div class="chips" id="filtro-pedidos" aria-label="Filtrar pedidos">
+                <button class="chip" type="button" data-filtro="activos" aria-pressed="true">Por atender <span id="n-activos"></span></button>
+                <button class="chip" type="button" data-filtro="entregado" aria-pressed="false">Entregados</button>
+                <button class="chip" type="button" data-filtro="cancelado" aria-pressed="false">Cancelados</button>
+                <button class="chip" type="button" data-filtro="todos" aria-pressed="false">Todos</button>
+              </div>
             </div>
+            <div id="pedidos-recibidos"><div class="esqueleto" style="min-height:140px"></div></div>
           </section>
         </div>
       </div>
