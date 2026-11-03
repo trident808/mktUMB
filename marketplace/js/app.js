@@ -109,6 +109,9 @@
       [/failed to fetch|network/i, "No hay conexión con el servidor. Revisa tu internet."],
       [/jwt expired|session.*missing|auth session missing/i, "Tu sesión expiró. Inicia sesión de nuevo."],
       [/provider is not enabled|unsupported provider/i, "El inicio con Google aún no está activado en Supabase."],
+      [/unable to exchange external code/i, "Google rechazó la conexión: revisa que el Client Secret pegado en Supabase sea el correcto."],
+      [/error getting user email|missing email/i, "Google no entregó el correo. Revisa que la app de Google pida el permiso de correo (email)."],
+      [/database error saving new user/i, "La cuenta no se pudo guardar en la base de datos. Revisa que schema.sql se haya ejecutado completo."],
       [/could not find the function|does not exist/i, "Falta configurar la base de datos (ejecuta schema.sql en Supabase)."],
       [/row-level security|permission denied/i, "No tienes permiso para realizar esta acción."]
     ];
@@ -510,7 +513,30 @@
     }
   }
 
+  /**
+   * Si Google o Supabase rechazan el inicio de sesión, vuelven a la página con
+   * ?error=...&error_description=... (o en el #hash). Mostrarlo y limpiar la URL.
+   */
+  function mostrarErrorDeAutenticacion() {
+    const q = new URLSearchParams(location.search);
+    const h = new URLSearchParams(location.hash.replace(/^#/, ""));
+    const desc = q.get("error_description") || h.get("error_description");
+    const codigo = q.get("error") || h.get("error");
+    if (!desc && !codigo) return;
+    const texto = decodeURIComponent((desc || codigo).replace(/\+/g, " "));
+    console.error("[UMB] Error de autenticación:", codigo, texto);
+    try { sessionStorage.removeItem("umb_registrar_acceso"); } catch { /* nada */ }
+    let amigable = UMB.traducirError(texto);
+    if (/expired|invalid/i.test(texto) && /link|otp|token/i.test(texto)) amigable = "El enlace ya venció o ya se usó. Solicita uno nuevo.";
+    if (amigable === texto) amigable = "No se pudo iniciar sesión: " + texto;
+    UMB.toast(amigable, { error: true, duracion: 12000 });
+    const msg = $("#mensaje");
+    if (msg) UMB.mensaje(msg, amigable, "error");
+    history.replaceState(null, "", location.pathname);
+  }
+
   document.addEventListener("DOMContentLoaded", () => {
+    mostrarErrorDeAutenticacion();
     activarCabecera();
     UMB.carrito.actualizarContador();
     pintarCabecera();
