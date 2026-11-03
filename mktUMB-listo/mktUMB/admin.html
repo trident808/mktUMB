@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Administración | Marketplace UMB</title>
+  <meta name="description" content="Panel de administración de Marketplace UMB.">
+  <meta name="theme-color" content="#c8102e">
+  <meta property="og:title" content="Administración | Marketplace UMB">
+  <meta property="og:description" content="Panel de administración de Marketplace UMB.">
+  <meta property="og:image" content="marketplace/img/imagen-principal.jpg">
+  <link rel="icon" href="marketplace/img/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="marketplace/css/styles.css">
+  <script>try{var t=JSON.parse(localStorage.getItem("umb_tema"));if(t==="claro"||t==="oscuro")document.documentElement.dataset.tema=t}catch(e){}</script>
+</head>
+<body data-pagina="admin">
+  <a class="saltar" href="#contenido">Saltar al contenido</a>
+  <header class="cabecera">
+    <div class="contenedor cabecera-fila">
+      <a class="logo" href="index.html" aria-label="Marketplace UMB, inicio">
+        <span class="logo-marca"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 9.5 5.5 4h13L20 9.5M4 9.5h16M4 9.5v.5a2.7 2.7 0 0 0 5.3 0 2.7 2.7 0 0 0 5.4 0 2.7 2.7 0 0 0 5.3 0v-.5M5.5 12.5V20h13v-7.5M10 20v-4.5h4V20" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></span>
+        <span class="logo-texto">Marketplace <em>UMB</em></span>
+      </a>
+      <form class="buscador" id="form-buscar" action="index.html" role="search">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/><path d="m16.5 16.5 4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        <input id="buscar" name="q" type="search" placeholder="Buscar productos o emprendimientos" aria-label="Buscar productos" autocomplete="off">
+      </form>
+      <nav class="nav-principal" id="nav-principal" aria-label="Navegación principal">
+        <a href="index.html#catalogo">Catálogo</a>
+        <a href="vender.html">Vender</a>
+        <a href="pedidos.html">Mis pedidos</a>
+        <a href="login.html" class="solo-movil" data-sin-sesion>Ingresar</a>
+        <a href="registro.html" class="solo-movil" data-sin-sesion>Crear cuenta</a>
+      </nav>
+      <div class="acciones">
+        <button class="btn-icono" id="btn-tema" type="button" aria-label="Cambiar tema"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></button>
+        <a class="btn-icono" href="carrito.html" aria-label="Carrito de compras"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 4h2l2.2 10.2a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 1.9-1.4L21 8H6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="10" cy="20" r="1.3" fill="currentColor"/><circle cx="17.5" cy="20" r="1.3" fill="currentColor"/></svg><span class="contador" data-contador-carrito></span></a>
+        <a class="btn btn-fantasma btn-sm solo-escritorio" href="login.html" data-sin-sesion>Ingresar</a>
+        <a class="btn btn-primario btn-sm solo-ancho" href="registro.html" data-sin-sesion>Crear cuenta</a>
+        <div class="usuario-menu" data-con-sesion hidden>
+          <button class="usuario-boton" id="usuario-boton" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Menú de tu cuenta"><span class="avatar">·</span></button>
+          <div class="menu-desplegable" id="usuario-desplegable" hidden>
+            <div class="menu-cabecera" id="menu-correo"></div>
+            <a href="mi-cuenta.html">👤 Mi cuenta</a>
+            <a href="pedidos.html">📦 Mis pedidos</a>
+            <a href="mi-cuenta.html#favoritos">♡ Favoritos</a>
+            <a href="vender.html">🏪 Mi tienda</a>
+            <a href="admin.html" data-solo-admin hidden>🛡️ Administración</a>
+            <hr>
+            <button type="button" data-cerrar-sesion>↩ Cerrar sesión</button>
+          </div>
+        </div>
+        <button class="btn-icono btn-menu-movil" id="btn-menu" type="button" aria-expanded="false" aria-controls="nav-principal" aria-label="Abrir menú"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+      </div>
+    </div>
+  </header>
+  <div class="toldo" aria-hidden="true"></div>
+
+  <main id="contenido">
+    <div class="pagina">
+      <div class="contenedor">
+        <div id="sin-permiso" class="vacio" hidden>
+          <div class="vacio-icono">🔒</div>
+          <h1>Acceso restringido</h1>
+          <p>Esta sección es solo para administradores. Para habilitarla, en Supabase cambia el campo <code>rol</code> de tu perfil a <code>admin</code>.</p>
+          <a class="btn btn-primario" href="index.html">Volver al inicio</a>
+        </div>
+        <div id="panel-admin" hidden>
+          <div class="pagina-cabecera"><span class="eyebrow">Administración</span><h1>Usuarios registrados</h1><p>Datos de registro e inicios de sesión guardados en Supabase.</p></div>
+          <p class="mensaje" id="mensaje-admin" role="status"></p>
+          <div class="estadisticas">
+            <div class="estadistica"><span>Usuarios</span><strong id="st-usuarios">—</strong></div>
+            <div class="estadistica"><span>Nuevos (7 días)</span><strong id="st-nuevos">—</strong></div>
+            <div class="estadistica"><span>Inicios de sesión hoy</span><strong id="st-hoy">—</strong></div>
+            <div class="estadistica"><span>Pedidos</span><strong id="st-pedidos">—</strong></div>
+          </div>
+          <div class="catalogo-barra">
+            <div class="buscador" style="max-width:360px;flex:1 1 260px">
+              <input id="buscar-usuarios" type="search" placeholder="Buscar por nombre, correo o teléfono" aria-label="Buscar usuarios">
+            </div>
+            <div class="catalogo-controles"><span class="muted" id="contador-usuarios"></span><button class="btn btn-linea btn-sm" id="btn-exportar" type="button">Descargar CSV (Excel)</button></div>
+          </div>
+          <div class="tabla-envoltura">
+            <table>
+              <thead><tr><th>Nombre</th><th>Correo</th><th>Teléfono</th><th>Rol</th><th>Ingreso con</th><th>Registro</th><th>Último acceso</th><th>Accesos</th></tr></thead>
+              <tbody id="tabla-usuarios"><tr><td colspan="8" class="muted">Cargando…</td></tr></tbody>
+            </table>
+          </div>
+          <h2 style="margin-top:2.5rem">Actividad reciente</h2>
+          <div class="tabla-envoltura">
+            <table>
+              <thead><tr><th>Fecha</th><th>Correo</th><th>Evento</th><th>Método</th><th>Navegador</th></tr></thead>
+              <tbody id="tabla-accesos"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="pie">
+    <div class="contenedor pie-grid">
+      <div>
+        <a class="logo" href="index.html"><span class="logo-marca"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 9.5 5.5 4h13L20 9.5M4 9.5h16M4 9.5v.5a2.7 2.7 0 0 0 5.3 0 2.7 2.7 0 0 0 5.4 0 2.7 2.7 0 0 0 5.3 0v-.5M5.5 12.5V20h13v-7.5M10 20v-4.5h4V20" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></span><span>Marketplace <em>UMB</em></span></a>
+        <p style="margin-top:1rem;max-width:22rem;font-size:.92rem">El mercado de emprendimientos de la comunidad de la Universidad Manuela Beltrán.</p>
+      </div>
+      <div>
+        <h2>Comprar</h2>
+        <ul>
+          <li><a href="index.html#catalogo">Catálogo</a></li>
+          <li><a href="carrito.html">Carrito</a></li>
+          <li><a href="pedidos.html">Mis pedidos</a></li>
+        </ul>
+      </div>
+      <div>
+        <h2>Vender</h2>
+        <ul>
+          <li><a href="vender.html">Abrir mi tienda</a></li>
+          <li><a href="registro.html?rol=vendedor">Registro de vendedores</a></li>
+        </ul>
+      </div>
+      <div>
+        <h2>Cuenta</h2>
+        <ul>
+          <li><a href="login.html">Iniciar sesión</a></li>
+          <li><a href="registro.html">Crear cuenta</a></li>
+          <li><a href="privacidad.html">Tratamiento de datos</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="contenedor pie-inferior">
+      <span>© <span data-anio>2026</span> Marketplace UMB · Proyecto académico</span>
+      <a href="privacidad.html">Política de privacidad</a>
+    </div>
+  </footer>
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+  <script src="marketplace/js/config.js"></script>
+  <script src="marketplace/js/app.js"></script>
+  <script src="marketplace/js/admin.js"></script>
+</body>
+</html>
