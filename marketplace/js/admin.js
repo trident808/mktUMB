@@ -44,7 +44,7 @@
           <td>${esc(u.correo)}</td>
           <td>${esc(u.telefono || "—")}</td>
           <td>${ROLES[u.rol] || esc(u.rol)}</td>
-          <td>${u.proveedor === "google" ? "Google" : "Correo"}</td>
+          <td>${{ google: "Google", azure: "Microsoft" }[u.proveedor] || "Correo"}</td>
           <td>${UMB.fecha(u.fecha_registro, true)}</td>
           <td>${u.ultimo_acceso ? UMB.fecha(u.ultimo_acceso, true) : "—"}</td>
           <td>${u.total_accesos ?? 0}</td>
@@ -58,7 +58,7 @@
         <td>${UMB.fecha(a.creado_en, true)}</td>
         <td>${esc(a.correo)}</td>
         <td>${a.evento === "registro" ? "Registro" : "Inicio de sesión"}</td>
-        <td>${a.metodo === "google" ? "Google" : "Correo"}</td>
+        <td>${{ google: "Google", azure: "Microsoft" }[a.metodo] || "Correo"}</td>
         <td>${a.navegador ? esc(navCorto(a.navegador)) : "—"}</td>
       </tr>`).join("") || `<tr><td colspan="5" class="muted">Sin registros.</td></tr>`;
 

@@ -24,6 +24,73 @@ create extension if not exists pgcrypto;
 
 
 -- =====================================================================
+-- 0. APARTAR TABLAS ANTIGUAS INCOMPATIBLES
+--    Si ya existían "tiendas", "pedidos", "pedido_items" o "accesos" con
+--    otra estructura (de una versión anterior del proyecto), se renombran
+--    a <tabla>_anterior_<fecha> para no perder datos, y se crean nuevas.
+-- =====================================================================
+
+do $$
+declare
+    v_tabla text;
+    v_req text[];
+    v_falta boolean;
+    v_sufijo text := to_char(now(), 'YYYYMMDD_HH24MISS');
+    v_apartadas text[] := '{}';
+begin
+    foreach v_tabla in array array['tiendas', 'pedidos', 'pedido_items', 'accesos'] loop
+        if to_regclass('public.' || v_tabla) is null then
+            continue;
+        end if;
+
+        v_req := case v_tabla
+            when 'tiendas' then array['id:uuid', 'usuario_id:uuid', 'nombre']
+            when 'pedidos' then array['id:uuid', 'codigo', 'usuario_id:uuid', 'estado', 'subtotal', 'envio', 'total',
+                                      'metodo_pago', 'nombre_entrega', 'telefono_entrega', 'direccion_entrega', 'notas', 'creado_en']
+            when 'pedido_items' then array['id', 'pedido_id:uuid', 'producto_id', 'tienda_id:uuid', 'nombre', 'precio', 'cantidad']
+            when 'accesos' then array['id', 'usuario_id:uuid', 'correo', 'evento', 'metodo', 'navegador', 'creado_en']
+        end;
+
+        select exists (
+            select 1 from unnest(v_req) as r(col)
+            where not exists (
+                select 1 from information_schema.columns c
+                where c.table_schema = 'public'
+                  and c.table_name = v_tabla
+                  and c.column_name = split_part(r.col, ':', 1)
+                  and (split_part(r.col, ':', 2) = '' or c.udt_name = split_part(r.col, ':', 2))
+            )
+        ) into v_falta;
+
+        -- Si se apartó "pedidos", sus ítems también.
+        if v_tabla = 'pedido_items' and 'pedidos' = any(v_apartadas) then
+            v_falta := true;
+        end if;
+
+        if v_falta then
+            execute format('alter table public.%I rename to %I', v_tabla, v_tabla || '_anterior_' || v_sufijo);
+            v_apartadas := v_apartadas || v_tabla;
+            raise notice 'La tabla antigua % se renombró a %', v_tabla, v_tabla || '_anterior_' || v_sufijo;
+        end if;
+    end loop;
+
+    -- Si se apartó "tiendas", quitar de "productos" la relación con la tabla vieja.
+    if 'tiendas' = any(v_apartadas) and to_regclass('public.productos') is not null then
+        declare
+            r record;
+        begin
+            for r in
+                select conname from pg_constraint
+                where conrelid = 'public.productos'::regclass and contype = 'f'
+            loop
+                execute format('alter table public.productos drop constraint %I', r.conname);
+            end loop;
+        end;
+    end if;
+end $$;
+
+
+-- =====================================================================
 -- 1. PERFILES (datos de registro de cada usuario)
 -- =====================================================================
 
@@ -45,17 +112,72 @@ alter table public.perfiles add column if not exists ultimo_acceso timestamptz;
 alter table public.perfiles add column if not exists total_accesos integer not null default 0;
 alter table public.perfiles add column if not exists actualizado_en timestamptz not null default now();
 
+-- Adaptar una tabla "perfiles" creada antes con otra estructura:
+--  * columnas obligatorias sin valor por defecto que el registro no llena
+--  * valores de rol/estado distintos (p. ej. 'comprador')
+--  * restricciones antiguas con otros valores permitidos
 do $$
+declare
+    r record;
 begin
-    if not exists (select 1 from pg_constraint where conname = 'perfiles_rol_check') then
-        alter table public.perfiles
-            add constraint perfiles_rol_check check (rol in ('cliente', 'vendedor', 'admin'));
-    end if;
-    if not exists (select 1 from pg_constraint where conname = 'perfiles_estado_check') then
-        alter table public.perfiles
-            add constraint perfiles_estado_check check (estado in ('activo', 'inactivo'));
+    for r in
+        select column_name from information_schema.columns
+        where table_schema = 'public' and table_name = 'perfiles'
+          and is_nullable = 'NO' and column_default is null
+          and column_name <> 'id'
+    loop
+        execute format('alter table public.perfiles alter column %I drop not null', r.column_name);
+        raise notice 'perfiles.% ya no es obligatoria', r.column_name;
+    end loop;
+
+    for r in
+        select conname from pg_constraint
+        where conrelid = 'public.perfiles'::regclass and contype = 'c'
+    loop
+        execute format('alter table public.perfiles drop constraint %I', r.conname);
+    end loop;
+
+    -- Copiar el correo desde columnas antiguas ("email") si existían.
+    if exists (select 1 from information_schema.columns
+               where table_schema = 'public' and table_name = 'perfiles' and column_name = 'email') then
+        execute 'update public.perfiles set correo = email where correo is null';
     end if;
 end $$;
+
+update public.perfiles
+set rol = case
+        when lower(rol) in ('vendedor', 'seller') then 'vendedor'
+        when lower(rol) in ('admin', 'administrador') then 'admin'
+        else 'cliente'
+    end
+where rol is null or rol not in ('cliente', 'vendedor', 'admin');
+
+update public.perfiles set estado = 'activo' where estado is null or estado not in ('activo', 'inactivo');
+update public.perfiles set nombre = 'Usuario' where nombre is null or trim(nombre) = '';
+update public.perfiles set proveedor = 'email' where proveedor is null;
+update public.perfiles set total_accesos = 0 where total_accesos is null;
+update public.perfiles set acepta_datos = false where acepta_datos is null;
+update public.perfiles set fecha_registro = now() where fecha_registro is null;
+update public.perfiles set actualizado_en = now() where actualizado_en is null;
+
+-- Valores por defecto (la tabla antigua podía tener otros, p. ej. rol = 'comprador').
+alter table public.perfiles alter column rol set default 'cliente';
+alter table public.perfiles alter column estado set default 'activo';
+alter table public.perfiles alter column nombre set default 'Usuario';
+alter table public.perfiles alter column proveedor set default 'email';
+alter table public.perfiles alter column total_accesos set default 0;
+alter table public.perfiles alter column acepta_datos set default false;
+alter table public.perfiles alter column fecha_registro set default now();
+alter table public.perfiles alter column actualizado_en set default now();
+
+alter table public.perfiles alter column rol set not null;
+alter table public.perfiles alter column estado set not null;
+alter table public.perfiles alter column nombre set not null;
+
+alter table public.perfiles
+    add constraint perfiles_rol_check check (rol in ('cliente', 'vendedor', 'admin'));
+alter table public.perfiles
+    add constraint perfiles_estado_check check (estado in ('activo', 'inactivo'));
 
 create index if not exists idx_perfiles_correo on public.perfiles (lower(correo));
 
@@ -76,7 +198,7 @@ create table if not exists public.accesos (
 
 do $$
 begin
-    if not exists (select 1 from pg_constraint where conname = 'accesos_evento_check') then
+    if not exists (select 1 from pg_constraint where conname = 'accesos_evento_check' and conrelid = 'public.accesos'::regclass) then
         alter table public.accesos
             add constraint accesos_evento_check check (evento in ('registro', 'inicio_sesion'));
     end if;
@@ -114,6 +236,25 @@ create table if not exists public.productos (
 );
 
 alter table public.productos add column if not exists tienda_id uuid references public.tiendas(id) on delete cascade;
+
+-- Si "tienda_id" ya existía de antes (sin relación o con otro tipo), ajustarla.
+do $$
+begin
+    if exists (select 1 from information_schema.columns
+               where table_schema = 'public' and table_name = 'productos'
+                 and column_name = 'tienda_id' and udt_name <> 'uuid') then
+        alter table public.productos rename column tienda_id to tienda_id_anterior;
+        alter table public.productos add column tienda_id uuid references public.tiendas(id) on delete cascade;
+    elsif not exists (select 1 from pg_constraint
+                      where conrelid = 'public.productos'::regclass and contype = 'f'
+                        and confrelid = 'public.tiendas'::regclass) then
+        update public.productos p set tienda_id = null
+        where tienda_id is not null and not exists (select 1 from public.tiendas t where t.id = p.tienda_id);
+        alter table public.productos
+            add constraint productos_tienda_id_fkey_umb foreign key (tienda_id)
+            references public.tiendas(id) on delete cascade;
+    end if;
+end $$;
 alter table public.productos add column if not exists tienda text;
 alter table public.productos add column if not exists categoria text;
 alter table public.productos add column if not exists descripcion text;
@@ -149,6 +290,21 @@ end $$;
 
 update public.productos set activo = true where activo is null;
 
+-- Columnas antiguas obligatorias que el formulario del vendedor no llena.
+do $$
+declare
+    r record;
+begin
+    for r in
+        select table_name, column_name from information_schema.columns
+        where table_schema = 'public' and table_name in ('productos', 'tiendas')
+          and is_nullable = 'NO' and column_default is null
+          and column_name not in ('id', 'nombre', 'usuario_id')
+    loop
+        execute format('alter table public.%I alter column %I drop not null', r.table_name, r.column_name);
+    end loop;
+end $$;
+
 create index if not exists idx_productos_tienda on public.productos (tienda_id);
 create index if not exists idx_productos_categoria on public.productos (categoria);
 
@@ -176,7 +332,7 @@ create table if not exists public.pedidos (
 
 do $$
 begin
-    if not exists (select 1 from pg_constraint where conname = 'pedidos_estado_check') then
+    if not exists (select 1 from pg_constraint where conname = 'pedidos_estado_check' and conrelid = 'public.pedidos'::regclass) then
         alter table public.pedidos
             add constraint pedidos_estado_check
             check (estado in ('pendiente', 'confirmado', 'enviado', 'entregado', 'cancelado'));
@@ -196,6 +352,36 @@ create table if not exists public.pedido_items (
 create index if not exists idx_pedidos_usuario on public.pedidos (usuario_id, creado_en desc);
 create index if not exists idx_pedido_items_pedido on public.pedido_items (pedido_id);
 create index if not exists idx_pedido_items_tienda on public.pedido_items (tienda_id);
+
+-- Estado de cada producto del pedido (cada tienda maneja su parte).
+alter table public.pedido_items add column if not exists estado text not null default 'pendiente';
+alter table public.pedido_items add column if not exists actualizado_en timestamptz not null default now();
+
+do $$
+begin
+    if not exists (select 1 from pg_constraint
+                   where conname = 'pedido_items_estado_check' and conrelid = 'public.pedido_items'::regclass) then
+        update public.pedido_items i set estado = p.estado
+        from public.pedidos p
+        where p.id = i.pedido_id and p.estado in ('pendiente', 'confirmado', 'enviado', 'entregado', 'cancelado');
+        alter table public.pedido_items
+            add constraint pedido_items_estado_check
+            check (estado in ('pendiente', 'confirmado', 'enviado', 'entregado', 'cancelado'));
+    end if;
+end $$;
+
+-- Historial: quién cambió el estado y cuándo.
+create table if not exists public.pedido_eventos (
+    id bigint generated by default as identity primary key,
+    pedido_id uuid not null references public.pedidos(id) on delete cascade,
+    tienda_id uuid references public.tiendas(id) on delete set null,
+    estado text not null,
+    actor text not null check (actor in ('comprador', 'vendedor', 'admin', 'sistema')),
+    usuario_id uuid references public.perfiles(id) on delete set null,
+    creado_en timestamptz not null default now()
+);
+
+create index if not exists idx_pedido_eventos_pedido on public.pedido_eventos (pedido_id, creado_en);
 
 
 -- =====================================================================
@@ -319,9 +505,22 @@ exception when others then
 end;
 $$;
 
--- Quitar el disparador antiguo (escribía en "profiles") y crear el nuevo.
-drop trigger if exists trigger_crear_perfil on auth.users;
-drop trigger if exists al_crear_usuario on auth.users;
+-- Quitar TODOS los disparadores antiguos sobre auth.users (de configuraciones
+-- anteriores o tutoriales: on_auth_user_created, trigger_crear_perfil, etc.).
+-- Si alguno falla, Supabase responde "Database error saving new user" y nadie
+-- puede registrarse. Solo quedan los de este archivo.
+do $$
+declare
+    r record;
+begin
+    for r in
+        select tgname from pg_trigger
+        where tgrelid = 'auth.users'::regclass and not tgisinternal
+    loop
+        execute format('drop trigger if exists %I on auth.users', r.tgname);
+        raise notice 'Disparador eliminado de auth.users: %', r.tgname;
+    end loop;
+end $$;
 
 create trigger al_crear_usuario
 after insert on auth.users
@@ -347,6 +546,69 @@ drop trigger if exists al_actualizar_usuario on auth.users;
 create trigger al_actualizar_usuario
 after update of email on auth.users
 for each row execute function public.sincronizar_correo_usuario();
+
+
+-- =====================================================================
+-- 8b. SOLO CORREOS INSTITUCIONALES
+--     Si la tabla "dominios_permitidos" tiene al menos un dominio, solo se
+--     pueden registrar correos de esos dominios (o de sus subdominios).
+--     Si está vacía, cualquiera puede registrarse.
+--
+--     Ejemplo (permite @umb.edu.co y también @academia.umb.edu.co):
+--       insert into public.dominios_permitidos (dominio) values ('umb.edu.co');
+-- =====================================================================
+
+create table if not exists public.dominios_permitidos (
+    dominio text primary key
+        check (dominio = lower(trim(dominio)) and dominio !~ '[@[:space:]]' and dominio like '%.%')
+);
+
+create or replace function public.correo_permitido(p_correo text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+    select not exists (select 1 from public.dominios_permitidos)
+        or exists (
+            select 1 from public.dominios_permitidos d
+            where lower(split_part(coalesce(p_correo, ''), '@', 2)) = d.dominio
+               or lower(split_part(coalesce(p_correo, ''), '@', 2)) like '%.' || d.dominio
+        );
+$$;
+
+-- Bloquea el registro (con correo o con Google) si el dominio no está permitido.
+create or replace function public.validar_dominio_registro()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+    if not public.correo_permitido(new.email) then
+        raise exception 'Solo se permiten correos institucionales de la UMB';
+    end if;
+    return new;
+end;
+$$;
+
+drop trigger if exists antes_crear_usuario on auth.users;
+create trigger antes_crear_usuario
+before insert on auth.users
+for each row execute function public.validar_dominio_registro();
+
+-- ¿El usuario actual puede usar el sitio? (dominio permitido o administrador)
+create or replace function public.puedo_ingresar()
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+    select public.correo_permitido((select email from auth.users where id = auth.uid()))
+        or public.es_admin();
+$$;
 
 
 -- =====================================================================
@@ -617,8 +879,208 @@ $$;
 
 
 -- =====================================================================
--- 13. PEDIDOS RECIBIDOS POR UNA TIENDA (para el panel del vendedor)
+-- 13. SEGUIMIENTO DE PEDIDOS
+--     Cada tienda avanza el estado de SUS productos del pedido:
+--       pendiente → confirmado → enviado → entregado   (o cancelado)
+--     El comprador puede confirmar "ya lo recibí" o cancelar si sigue pendiente.
+--     El estado general del pedido se calcula a partir de sus productos.
 -- =====================================================================
+
+create or replace function public.recalcular_estado_pedido(p_pedido uuid)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+    v_estado text;
+begin
+    select case
+             when count(*) filter (where estado <> 'cancelado') = 0 then 'cancelado'
+             else (array['pendiente', 'confirmado', 'enviado', 'entregado'])[
+                    min(array_position(array['pendiente', 'confirmado', 'enviado', 'entregado'], estado))
+                      filter (where estado <> 'cancelado')]
+           end
+    into v_estado
+    from public.pedido_items
+    where pedido_id = p_pedido;
+
+    update public.pedidos set estado = coalesce(v_estado, estado) where id = p_pedido;
+end;
+$$;
+
+-- VENDEDOR (o admin): cambiar el estado de su parte del pedido.
+create or replace function public.actualizar_estado_pedido(
+    p_pedido uuid,
+    p_estado text,
+    p_tienda uuid default null
+)
+returns text
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+    v_usuario uuid := auth.uid();
+    v_tienda uuid;
+    v_actor text := 'vendedor';
+    v_actual text;
+    v_cambiadas integer;
+begin
+    if v_usuario is null then
+        raise exception 'Debes iniciar sesión';
+    end if;
+
+    select id into v_tienda from public.tiendas where usuario_id = v_usuario;
+
+    if p_tienda is not null and p_tienda is distinct from v_tienda then
+        if not public.es_admin() then
+            raise exception 'No tienes permiso para cambiar este pedido';
+        end if;
+        v_tienda := p_tienda;
+        v_actor := 'admin';
+    elsif v_tienda is null then
+        raise exception 'No tienes una tienda';
+    end if;
+
+    select count(*) into v_cambiadas
+    from public.pedido_items
+    where pedido_id = p_pedido and tienda_id = v_tienda;
+
+    if v_cambiadas = 0 then
+        raise exception 'Este pedido no tiene productos de tu tienda';
+    end if;
+
+    -- Estado actual (el menos avanzado) de los productos de esta tienda
+    select estado into v_actual
+    from public.pedido_items
+    where pedido_id = p_pedido and tienda_id = v_tienda and estado <> 'cancelado'
+    order by array_position(array['pendiente', 'confirmado', 'enviado', 'entregado'], estado)
+    limit 1;
+
+    if v_actual is null then
+        raise exception 'Este pedido ya fue cancelado';
+    end if;
+
+    if not (
+        (v_actual = 'pendiente'  and p_estado in ('confirmado', 'cancelado')) or
+        (v_actual = 'confirmado' and p_estado in ('enviado', 'entregado', 'cancelado')) or
+        (v_actual = 'enviado'    and p_estado = 'entregado')
+    ) then
+        raise exception 'No se puede pasar de "%" a "%"', v_actual, p_estado;
+    end if;
+
+    -- Cambiar el estado y, si se cancela, devolver al inventario solo estas unidades.
+    with cambiados as (
+        update public.pedido_items
+        set estado = p_estado, actualizado_en = now()
+        where pedido_id = p_pedido and tienda_id = v_tienda and estado <> 'cancelado'
+        returning producto_id, cantidad
+    ), devolver as (
+        select producto_id, sum(cantidad) as unidades from cambiados
+        where p_estado = 'cancelado' group by producto_id
+    )
+    update public.productos pr
+    set stock = pr.stock + d.unidades
+    from devolver d
+    where pr.id::text = d.producto_id;
+
+    insert into public.pedido_eventos (pedido_id, tienda_id, estado, actor, usuario_id)
+    values (p_pedido, v_tienda, p_estado, v_actor, v_usuario);
+
+    perform public.recalcular_estado_pedido(p_pedido);
+    return p_estado;
+end;
+$$;
+
+-- COMPRADOR: confirmar que recibió los productos de una tienda.
+create or replace function public.confirmar_recibido(p_pedido uuid, p_tienda uuid default null)
+returns text
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+    v_usuario uuid := auth.uid();
+    v_n integer;
+begin
+    if not exists (select 1 from public.pedidos where id = p_pedido and usuario_id = v_usuario) then
+        raise exception 'Este pedido no es tuyo';
+    end if;
+
+    update public.pedido_items
+    set estado = 'entregado', actualizado_en = now()
+    where pedido_id = p_pedido
+      and tienda_id is not distinct from p_tienda
+      and estado in ('confirmado', 'enviado');
+    get diagnostics v_n = row_count;
+
+    if v_n = 0 then
+        raise exception 'Solo puedes confirmar la entrega cuando el vendedor haya confirmado o enviado el pedido';
+    end if;
+
+    insert into public.pedido_eventos (pedido_id, tienda_id, estado, actor, usuario_id)
+    values (p_pedido, p_tienda, 'entregado', 'comprador', v_usuario);
+
+    perform public.recalcular_estado_pedido(p_pedido);
+    return 'entregado';
+end;
+$$;
+
+-- COMPRADOR: cancelar lo que siga pendiente.
+create or replace function public.cancelar_pedido(p_pedido uuid)
+returns text
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+    v_usuario uuid := auth.uid();
+    v_n integer;
+begin
+    if not exists (select 1 from public.pedidos where id = p_pedido and usuario_id = v_usuario) then
+        raise exception 'Este pedido no es tuyo';
+    end if;
+
+    if not exists (select 1 from public.pedido_items where pedido_id = p_pedido and estado <> 'cancelado') then
+        raise exception 'Este pedido ya está cancelado';
+    end if;
+
+    select count(*) into v_n
+    from public.pedido_items
+    where pedido_id = p_pedido and estado = 'pendiente';
+
+    if v_n = 0 then
+        raise exception 'Ya no se puede cancelar: el vendedor confirmó el pedido. Escríbele para acordarlo.';
+    end if;
+
+    -- Un evento por cada tienda afectada, para que cada vendedor lo vea.
+    insert into public.pedido_eventos (pedido_id, tienda_id, estado, actor, usuario_id)
+    select distinct p_pedido, tienda_id, 'cancelado', 'comprador', v_usuario
+    from public.pedido_items
+    where pedido_id = p_pedido and estado = 'pendiente';
+
+    with cancelados as (
+        update public.pedido_items
+        set estado = 'cancelado', actualizado_en = now()
+        where pedido_id = p_pedido and estado = 'pendiente'
+        returning producto_id, cantidad
+    ), devolver as (
+        select producto_id, sum(cantidad) as unidades from cancelados group by producto_id
+    )
+    update public.productos pr
+    set stock = pr.stock + d.unidades
+    from devolver d
+    where pr.id::text = d.producto_id;
+
+    perform public.recalcular_estado_pedido(p_pedido);
+    return 'cancelado';
+end;
+$$;
+
+-- Pedidos recibidos por la tienda del usuario (panel del vendedor).
+drop function if exists public.devolver_stock(uuid, uuid, boolean);
+drop function if exists public.pedidos_de_mi_tienda();
 
 create or replace function public.pedidos_de_mi_tienda()
 returns table (
@@ -626,27 +1088,35 @@ returns table (
     codigo text,
     estado text,
     creado_en timestamptz,
+    actualizado_en timestamptz,
     nombre_entrega text,
     telefono_entrega text,
     direccion_entrega text,
+    notas text,
+    metodo_pago text,
     producto text,
     cantidad integer,
-    precio numeric
+    precio numeric,
+    entrega_confirmada_por text
 )
 language sql
 stable
 security definer
 set search_path = ''
 as $$
-    select p.id, p.codigo, p.estado, p.creado_en,
-           p.nombre_entrega, p.telefono_entrega, p.direccion_entrega,
-           i.nombre, i.cantidad, i.precio
+    select p.id, p.codigo, i.estado, p.creado_en, i.actualizado_en,
+           p.nombre_entrega, p.telefono_entrega, p.direccion_entrega, p.notas, p.metodo_pago,
+           i.nombre, i.cantidad, i.precio,
+           (select e.actor from public.pedido_eventos e
+            where e.pedido_id = p.id and e.estado = 'entregado'
+              and (e.tienda_id = t.id)
+            order by e.creado_en desc limit 1)
     from public.pedido_items i
     join public.pedidos p on p.id = i.pedido_id
     join public.tiendas t on t.id = i.tienda_id
     where t.usuario_id = auth.uid()
     order by p.creado_en desc
-    limit 200;
+    limit 300;
 $$;
 
 
@@ -663,7 +1133,7 @@ begin
     for r in
         select policyname, tablename from pg_policies
         where schemaname = 'public'
-          and tablename in ('perfiles', 'accesos', 'tiendas', 'productos', 'pedidos', 'pedido_items')
+          and tablename in ('perfiles', 'accesos', 'tiendas', 'productos', 'pedidos', 'pedido_items', 'pedido_eventos')
     loop
         execute format('drop policy if exists %I on public.%I', r.policyname, r.tablename);
     end loop;
@@ -675,9 +1145,11 @@ alter table public.tiendas      enable row level security;
 alter table public.productos    enable row level security;
 alter table public.pedidos      enable row level security;
 alter table public.pedido_items enable row level security;
+alter table public.dominios_permitidos enable row level security;
+alter table public.pedido_eventos enable row level security;
 
 revoke all on public.perfiles, public.accesos, public.tiendas, public.productos,
-              public.pedidos, public.pedido_items
+              public.pedidos, public.pedido_items, public.pedido_eventos
 from anon, authenticated;
 
 -- ---------- Perfiles: cada quien ve y edita lo suyo; el admin ve todo ----------
@@ -760,22 +1232,50 @@ using (
     or exists (select 1 from public.tiendas t where t.id = tienda_id and t.usuario_id = auth.uid())
 );
 
+grant select on public.pedido_eventos to authenticated;
+
+create policy "pedido_eventos_ver" on public.pedido_eventos
+for select to authenticated
+using (
+    public.es_admin()
+    or exists (select 1 from public.pedidos p where p.id = pedido_id and p.usuario_id = auth.uid())
+    or exists (select 1 from public.tiendas t where t.id = tienda_id and t.usuario_id = auth.uid())
+);
+
+-- ---------- Dominios permitidos: cualquiera puede leerlos (la página los muestra) ----------
+revoke all on public.dominios_permitidos from anon, authenticated;
+grant select on public.dominios_permitidos to anon, authenticated;
+drop policy if exists "dominios_ver" on public.dominios_permitidos;
+create policy "dominios_ver" on public.dominios_permitidos
+for select to anon, authenticated
+using (true);
+
 -- ---------- Funciones ----------
 revoke all on function public.manejar_nuevo_usuario() from public, anon, authenticated;
 revoke all on function public.sincronizar_correo_usuario() from public, anon, authenticated;
 revoke all on function public.preparar_producto() from public, anon, authenticated;
 revoke all on function public.propagar_nombre_tienda() from public, anon, authenticated;
+revoke all on function public.validar_dominio_registro() from public, anon, authenticated;
 
 revoke all on function public.registrar_acceso(text, text) from public, anon;
 revoke all on function public.crear_tienda(text, text, text, text) from public, anon;
 revoke all on function public.crear_pedido(jsonb, text, text, text, text, text) from public, anon;
 revoke all on function public.pedidos_de_mi_tienda() from public, anon;
+revoke all on function public.recalcular_estado_pedido(uuid) from public, anon, authenticated;
+revoke all on function public.actualizar_estado_pedido(uuid, text, uuid) from public, anon;
+revoke all on function public.confirmar_recibido(uuid, uuid) from public, anon;
+revoke all on function public.cancelar_pedido(uuid) from public, anon;
 
 grant execute on function public.es_admin() to anon, authenticated;
+grant execute on function public.correo_permitido(text) to anon, authenticated;
+grant execute on function public.puedo_ingresar() to authenticated;
 grant execute on function public.registrar_acceso(text, text) to authenticated;
 grant execute on function public.crear_tienda(text, text, text, text) to authenticated;
 grant execute on function public.crear_pedido(jsonb, text, text, text, text, text) to authenticated;
 grant execute on function public.pedidos_de_mi_tienda() to authenticated;
+grant execute on function public.actualizar_estado_pedido(uuid, text, uuid) to authenticated;
+grant execute on function public.confirmar_recibido(uuid, uuid) to authenticated;
+grant execute on function public.cancelar_pedido(uuid) to authenticated;
 
 
 -- =====================================================================
@@ -815,33 +1315,27 @@ end $$;
 
 
 -- =====================================================================
--- 16. PRODUCTOS DE DEMOSTRACIÓN (solo si el catálogo está vacío)
+-- 16b. SINCRONIZAR LOS CONTADORES DE ID
+--      Si se insertaron filas con el id escrito a mano, el contador
+--      automático queda atrás y aparece "duplicate key ... productos_pkey".
 -- =====================================================================
 
 do $$
+declare
+    v_tabla text;
+    v_seq text;
+    v_max bigint;
 begin
-    if not exists (select 1 from public.productos) then
-        insert into public.productos (nombre, tienda, categoria, precio, rating, resenas, stock, imagen, descripcion)
-        values
-        ('Café orgánico Tierra Alta 500 g', 'Finca Tierra Alta', 'Alimentos y bebidas', 38000, 4.8, 132, 24, 'marketplace/img/cafe.jpg',
-         'Café de origen único, cultivado a 1.800 m s. n. m. y tostado en pequeños lotes por la familia productora.'),
-        ('Vasija artesanal de barro', 'Barro & Fuego', 'Artesanías', 95000, 4.6, 41, 9, 'marketplace/img/vasija.jpg',
-         'Vasija de barro cocido, moldeada y pintada a mano por artesanos de Ráquira.'),
-        ('Mochila tejida wayuu', 'Telar Wayuu', 'Moda y accesorios', 180000, 5.0, 87, 5, 'icono:textil',
-         'Mochila tejida a mano en algodón, con patrones tradicionales wayuu.'),
-        ('Miel pura de abejas 350 ml', 'Apiario San Vicente', 'Alimentos y bebidas', 22000, 4.7, 64, 40, 'icono:miel',
-         'Miel 100 % pura extraída en frío, sin aditivos ni procesos industriales.'),
-        ('Aretes de filigrana en plata', 'Joyería Mompox', 'Moda y accesorios', 145000, 4.9, 29, 7, 'icono:joyeria',
-         'Aretes elaborados con la técnica tradicional de filigrana momposina.'),
-        ('Chocolate 70 % cacao 100 g', 'Cacao Sierra Nevada', 'Alimentos y bebidas', 15000, 4.5, 58, 60, 'icono:chocolate',
-         'Barra de chocolate oscuro elaborada con cacao fino de aroma.'),
-        ('Velas de cera de abeja (x3)', 'Casa Cera', 'Hogar', 48000, 4.4, 19, 15, 'icono:vela',
-         'Velas artesanales de cera de abeja natural, de larga duración.'),
-        ('Jabón natural de avena 100 g', 'Raíz Botánica', 'Belleza natural', 12000, 4.6, 73, 33, 'icono:jabon',
-         'Jabón artesanal elaborado con avena e ingredientes vegetales.');
-    end if;
+    foreach v_tabla in array array['productos', 'accesos', 'pedido_items'] loop
+        v_seq := pg_get_serial_sequence('public.' || v_tabla, 'id');
+        if v_seq is null then
+            continue;
+        end if;
+        execute format('select coalesce(max(id), 0) from public.%I', v_tabla) into v_max;
+        perform setval(v_seq, v_max + 1, false);
+    end loop;
 exception when others then
-    raise notice 'No se insertaron productos de demostración: %', sqlerrm;
+    raise notice 'No se sincronizaron los contadores: %', sqlerrm;
 end $$;
 
 

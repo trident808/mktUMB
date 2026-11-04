@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html lang="es"> 
+<html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1"> 
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Marketplace UMB | Emprendimientos universitarios</title>
   <meta name="description" content="Compra y vende productos de los emprendimientos de la comunidad de la Universidad Manuela Beltrán.">
   <meta name="theme-color" content="#c8102e">
@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="marketplace/css/styles.css">
+  <link rel="stylesheet" href="marketplace/css/styles.css?v=0cbdc2db">
   <script>try{var t=JSON.parse(localStorage.getItem("umb_tema"));if(t==="claro"||t==="oscuro")document.documentElement.dataset.tema=t}catch(e){}</script>
 </head>
 <body data-pagina="inicio">
@@ -107,7 +107,7 @@
         <div class="seccion-cabecera">
           <div><span class="eyebrow">Catálogo</span><h2 id="t-catalogo">Todos los productos</h2><p id="contador-resultados">Cargando…</p></div>
         </div>
-        <p class="mensaje info" id="aviso-demo" hidden>Mostrando productos de ejemplo: aún no hay productos en la base de datos.</p>
+        <p class="mensaje info" id="aviso-demo" hidden>No se pudo cargar el catálogo. Revisa tu conexión e intenta de nuevo.</p>
         <div class="catalogo-barra">
           <div class="chips" id="chips" aria-label="Filtrar por categoría"></div>
           <div class="catalogo-controles">
@@ -184,8 +184,8 @@
   <div class="toasts" id="toasts" aria-live="polite"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-  <script src="marketplace/js/config.js"></script>
-  <script src="marketplace/js/app.js"></script>
-  <script src="marketplace/js/catalogo.js"></script>
+  <script src="marketplace/js/config.js?v=0cbdc2db"></script>
+  <script src="marketplace/js/app.js?v=0cbdc2db"></script>
+  <script src="marketplace/js/catalogo.js?v=0cbdc2db"></script>
 </body>
 </html>

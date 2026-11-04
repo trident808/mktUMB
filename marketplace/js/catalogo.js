@@ -25,7 +25,11 @@
 
     $("#dato-productos").textContent = productos.length;
     $("#dato-tiendas").textContent = new Set(productos.map((p) => p.tienda)).size;
-    if (origen === "demo") $("#aviso-demo").hidden = false;
+    if (origen === "error") $("#aviso-demo").hidden = false;
+
+    // Sin productos todavía: ocultar destacados y emprendimientos.
+    $("#destacados-grid").closest("section").hidden = productos.length === 0;
+    $("#tiendas-grid").closest("section").hidden = productos.length === 0;
 
     // Destacados: mejor calificados con stock
     const dest = $("#destacados-grid");
@@ -70,6 +74,10 @@
       $$("[data-chip]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.chip === estado.cat)));
       $$("[data-cat]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.cat === estado.cat)));
 
+      if (!productos.length) {
+        grid.innerHTML = `<div class="vacio" style="grid-column:1/-1"><div class="vacio-icono">🛍️</div><h3>Aún no hay productos publicados</h3><p>Los emprendedores de la comunidad están preparando sus tiendas. ¿Tienes algo para vender? Sé el primero.</p><a class="btn btn-primario" href="vender.html">Publicar un producto</a></div>`;
+        return;
+      }
       if (!r.length) {
         grid.innerHTML = `<div class="vacio" style="grid-column:1/-1"><div class="vacio-icono">🔎</div><h3>No encontramos productos</h3><p>Prueba con otra palabra o quita los filtros.</p><button class="btn btn-linea" type="button" id="limpiar-filtros">Ver todo el catálogo</button></div>`;
         $("#limpiar-filtros").addEventListener("click", () => {

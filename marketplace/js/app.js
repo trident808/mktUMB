@@ -111,11 +111,15 @@
       [/new password should be different/i, "La nueva contraseña debe ser distinta a la anterior."],
       [/failed to fetch|network/i, "No hay conexión con el servidor. Revisa tu internet."],
       [/jwt expired|session.*missing|auth session missing/i, "Tu sesión expiró. Inicia sesión de nuevo."],
-      [/provider is not enabled|unsupported provider/i, "El inicio con Google aún no está activado en Supabase."],
-      [/unable to exchange external code/i, "Google rechazó la conexión: revisa que el Client Secret pegado en Supabase sea el correcto."],
-      [/error getting user email|missing email/i, "Google no entregó el correo. Revisa que la app de Google pida el permiso de correo (email)."],
+      [/provider is not enabled|unsupported provider/i, "El inicio con Microsoft aún no está activado en Supabase (Authentication → Providers → Azure)."],
+      [/unable to exchange external code/i, "Microsoft rechazó la conexión: revisa que el secreto pegado en Supabase sea el «Valor» (Value) del secreto y que no haya vencido."],
+      [/error getting user email|missing email|email.*(not|un)verified/i, "Microsoft no entregó un correo verificado. Revisa el permiso «email» y los «optional claims» de la app en Azure."],
+      [/AADSTS65001|AADSTS90094|admin (consent|approval)|need admin/i, "La UMB exige que un administrador de TI apruebe esta app. Entra con tu correo y contraseña mientras tanto."],
+      [/AADSTS50020|AADSTS700016|does not exist in tenant/i, "Esa cuenta de Microsoft no pertenece a la UMB. Usa tu cuenta institucional."],
+      [/AADSTS50011|redirect uri/i, "La dirección de retorno no coincide: revisa el Redirect URI de la app en Azure."],
+      [/AADSTS7000215|invalid client secret/i, "El secreto de Microsoft no es válido o venció. Crea uno nuevo en Azure y pégalo en Supabase."],
       [/solo se permiten correos/i, "Solo pueden registrarse estudiantes de la UMB con su correo institucional."],
-      [/database error saving new user/i, "No se pudo crear la cuenta. Recuerda usar tu correo institucional de la UMB (también al entrar con Google)."],
+      [/database error saving new user/i, "No se pudo crear la cuenta. Recuerda usar tu correo institucional de la UMB."],
       [/could not find the function|does not exist/i, "Falta configurar la base de datos (ejecuta schema.sql en Supabase)."],
       [/row-level security|permission denied/i, "No tienes permiso para realizar esta acción."]
     ];
@@ -445,7 +449,7 @@
   /**
    * Guarda en la tabla "accesos" cada inicio de sesión.
    * auth.js marca "umb_registrar_acceso" antes de iniciar sesión
-   * (también cuando se vuelve de Google), y aquí se envía una sola vez.
+   * (también cuando se vuelve de Microsoft), y aquí se envía una sola vez.
    */
   UMB.marcarAcceso = (metodo) => { try { sessionStorage.setItem("umb_registrar_acceso", metodo); } catch { /* nada */ } };
   UMB.registrarAccesoPendiente = async (sesion) => {
@@ -589,7 +593,7 @@
   }
 
   /**
-   * Si Google o Supabase rechazan el inicio de sesión, vuelven a la página con
+   * Si Microsoft o Supabase rechazan el inicio de sesión, vuelven a la página con
    * ?error=...&error_description=... (o en el #hash). Mostrarlo y limpiar la URL.
    */
   function mostrarErrorDeAutenticacion() {
@@ -609,6 +613,27 @@
     if (msg) UMB.mensaje(msg, amigable, "error");
     history.replaceState(null, "", location.pathname);
   }
+
+  /**
+   * Red de seguridad: si algo falla mientras la página carga datos, no dejar
+   * los recuadros "cargando" para siempre; mostrar un mensaje claro.
+   */
+  function mostrarFalloDeCarga(error) {
+    console.error("[UMB] Error inesperado:", error);
+    const pendientes = $$(".esqueleto");
+    if (!pendientes.length) return;
+    const aviso = document.createElement("div");
+    aviso.className = "vacio";
+    aviso.innerHTML = '<div class="vacio-icono">⚠️</div><h2>No se pudo cargar esta sección</h2>' +
+      '<p>Recarga la página con <strong>Ctrl + Shift + R</strong>. Si sigue igual, revisa que todos los archivos del sitio estén actualizados.</p>' +
+      '<p class="muted" style="font-size:.8rem"></p><button class="btn btn-primario" type="button">Reintentar</button>';
+    aviso.querySelector(".muted").textContent = "Detalle: " + (error?.message || error || "desconocido");
+    aviso.querySelector("button").addEventListener("click", () => location.reload());
+    pendientes[0].replaceWith(aviso);
+    pendientes.slice(1).forEach((el) => el.remove());
+  }
+  window.addEventListener("unhandledrejection", (e) => mostrarFalloDeCarga(e.reason));
+  window.addEventListener("error", (e) => mostrarFalloDeCarga(e.error || e.message));
 
   document.addEventListener("DOMContentLoaded", () => {
     mostrarErrorDeAutenticacion();

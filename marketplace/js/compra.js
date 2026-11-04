@@ -77,6 +77,19 @@
     $("#vaciar-carrito")?.addEventListener("click", () => { UMB.carrito.vaciar(); pintar(); });
     window.addEventListener("storage", pintar);
     pintar();
+
+    // Quitar del carrito productos que ya no existen (p. ej. borrados por el vendedor).
+    UMB.cargarProductos().then(({ productos, origen }) => {
+      if (origen !== "supabase") return;
+      const ids = new Set(productos.map((p) => p.id));
+      const antes = UMB.carrito.items();
+      const quedan = antes.filter((i) => ids.has(String(i.id)));
+      if (quedan.length !== antes.length) {
+        UMB.carrito.guardar(quedan);
+        UMB.toast("Quitamos de tu carrito productos que ya no están disponibles.");
+        pintar();
+      }
+    });
   }
 
   /* ======================= Checkout ======================= */
@@ -106,18 +119,11 @@
       form.correo.value = perfil.correo || sesion.user.email || "";
     }
 
-    const hayDemo = items.some((i) => String(i.id).startsWith("demo-"));
-    if (hayDemo) {
-      UMB.mensaje(msg, "Tu carrito tiene productos de demostración que no existen en la base de datos. Ejecuta schema.sql en Supabase y vuelve a agregarlos desde el catálogo.", "error");
-    }
 
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
       const btn = form.querySelector('[type="submit"]');
       if (!form.reportValidity()) return;
-      if (UMB.carrito.items().some((i) => String(i.id).startsWith("demo-"))) {
-        return UMB.mensaje(msg, "Quita del carrito los productos de demostración para continuar.", "error");
-      }
       UMB.cargando(btn, true);
       UMB.mensaje(msg, "");
 

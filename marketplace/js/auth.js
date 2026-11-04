@@ -46,25 +46,41 @@
     });
   });
 
-  /* ======================= Google ======================= */
+  // Mostrar qué correos se aceptan (si el registro está limitado a la UMB).
+  UMB.dominios().then((lista) => {
+    if (!lista.length) return;
+    $$("[data-ayuda-dominio]").forEach((el) => {
+      el.textContent = `Usa tu correo institucional (${UMB.textoDominios(lista)}).`;
+      el.hidden = false;
+    });
+    $$('input[type="email"][name="correo"]').forEach((i) => (i.placeholder = "tu.nombre@" + lista[0]));
+  });
 
-  async function conGoogle(e) {
+  /* ======================= Microsoft (y otros proveedores) ======================= */
+
+  // Opciones por proveedor. Microsoft (Azure) exige pedir el permiso "email".
+  const OPCIONES_PROVEEDOR = {
+    azure: { scopes: "email", queryParams: { prompt: "select_account" } },
+    google: {}
+  };
+
+  async function conProveedor(e) {
     const btn = e.currentTarget;
+    const proveedor = btn.dataset.oauth;
     const msg = $("#mensaje");
     if (!UMB.db) return UMB.mensaje(msg, "No hay conexión con el servidor.", "error");
     UMB.cargando(btn, true);
-    UMB.marcarAcceso("google");
-    const volver = destino();
+    UMB.marcarAcceso(proveedor);
     const { error } = await UMB.db.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: urlDe(volver) }
+      provider: proveedor,
+      options: { ...(OPCIONES_PROVEEDOR[proveedor] || {}), redirectTo: urlDe(destino()) }
     });
     if (error) {
       UMB.cargando(btn, false);
       UMB.mensaje(msg, UMB.traducirError(error), "error");
     }
   }
-  $$("[data-google]").forEach((b) => b.addEventListener("click", conGoogle));
+  $$("[data-oauth]").forEach((b) => b.addEventListener("click", conProveedor));
 
   /* ======================= Iniciar sesión ======================= */
 
@@ -78,6 +94,10 @@
     if (UMB.param("confirmado")) UMB.mensaje(msg, "¡Correo confirmado! Ya puedes iniciar sesión.", "exito");
     if (UMB.param("clave") === "actualizada") UMB.mensaje(msg, "Tu contraseña se actualizó. Inicia sesión con la nueva.", "exito");
     if (UMB.param("volver")) UMB.mensaje(msg, "Inicia sesión para continuar.", "info");
+    if (UMB.param("bloqueado")) {
+      UMB.dominios().then((lista) => UMB.mensaje(msg,
+        `Marketplace UMB es solo para la comunidad de la universidad. Ingresa con tu correo institucional${lista.length ? " (" + UMB.textoDominios(lista) + ")" : ""}.`, "error"));
+    }
 
     formLogin.addEventListener("submit", async (e) => {
       e.preventDefault();
@@ -96,6 +116,7 @@
         if (/not confirmed/i.test(error.message)) $("#reenviar-confirmacion").hidden = false;
         return;
       }
+      if (!(await UMB.verificarIngreso(data.session))) return;
       UMB.marcarAcceso("email");
       await UMB.registrarAccesoPendiente(data.session);
       UMB.mensaje(msg, "¡Bienvenido! Entrando…", "exito");
@@ -144,6 +165,11 @@
       if (clave.length < 8) return UMB.mensaje(msg, "La contraseña debe tener al menos 8 caracteres.", "error");
       if (clave !== clave2) { formReg.clave2.focus(); return UMB.mensaje(msg, "Las contraseñas no coinciden.", "error"); }
       if (!formReg.acepta.checked) return UMB.mensaje(msg, "Debes aceptar el tratamiento de datos para crear la cuenta.", "error");
+      if (!(await UMB.correoPermitido(correo))) {
+        formReg.correo.focus();
+        const lista = await UMB.dominios();
+        return UMB.mensaje(msg, `Solo pueden registrarse estudiantes de la UMB. Usa tu correo institucional (${UMB.textoDominios(lista)}).`, "error");
+      }
       if (!UMB.db) return UMB.mensaje(msg, "No hay conexión con el servidor.", "error");
 
       UMB.cargando(btn, true);

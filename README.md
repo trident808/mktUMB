@@ -58,13 +58,18 @@ En **Authentication → Sign In / Providers → Email**:
 
 > El servicio de correo gratuito de Supabase envía muy pocos correos por hora. Para un uso real, configura tu propio SMTP en **Authentication → Emails → SMTP Settings** (sirven Gmail, Brevo, Resend, etc.).
 
-### 3. (Opcional) Activar «Continuar con Google»
+### 3. (Opcional) Activar «Continuar con Microsoft» (cuentas de la UMB)
 
-1. En [Google Cloud Console](https://console.cloud.google.com/apis/credentials), crea un **ID de cliente de OAuth** de tipo **Aplicación web**.
-2. En **URI de redireccionamiento autorizados**, pega la URL de callback que muestra Supabase en **Authentication → Providers → Google**. Suele ser `https://sispastooqxbzunmglxi.supabase.co/auth/v1/callback`.
-3. Copia el **Client ID** y el **Client Secret** en Supabase → Providers → Google y actívalo.
+1. En [portal.azure.com](https://portal.azure.com), entra con cualquier cuenta de Microsoft y abre **Microsoft Entra ID → App registrations → New registration**.
+2. **Nombre:** Marketplace UMB. **Supported account types:** «Accounts in any organizational directory (Any Microsoft Entra ID tenant - Multitenant)».
+3. **Redirect URI:** plataforma **Web**, con la dirección `https://sispastooqxbzunmglxi.supabase.co/auth/v1/callback`. Pulsa **Register**.
+4. Copia el **Application (client) ID**.
+5. En **Certificates & secrets → New client secret**, crea un secreto y copia la columna **Value** (no el «Secret ID»). Anota la fecha de vencimiento.
+6. (Recomendado) En **Manifest**, agrega en `optionalClaims` el claim `email` y el claim `xms_edov` en `idToken`, y `xms_edov` en `accessToken`.
+7. En Supabase → **Authentication → Sign In / Providers → Azure**, actívalo y pega el Client ID y el secreto (Value). Deja **Azure Tenant URL** vacío.
+8. Pulsa **Save**.
 
-Si no lo configuras, el botón de Google muestra un mensaje de error claro y todo lo demás sigue funcionando.
+> Si al entrar aparece «Se necesita aprobación del administrador», la UMB no deja que los estudiantes autoricen apps externas. En ese caso, el área de TI de la universidad debe aprobar la app. Mientras tanto, el registro con correo y contraseña sigue funcionando.
 
 ### 4. Convertir tu cuenta en administradora
 
@@ -75,6 +80,19 @@ update public.perfiles set rol = 'admin' where correo = 'tu-correo@ejemplo.com';
 ```
 
 Desde ese momento verás **🛡️ Administración** en el menú de tu cuenta.
+
+### 4b. Permitir solo estudiantes de la UMB
+
+En el SQL Editor, agrega el dominio de los correos institucionales:
+
+```sql
+insert into public.dominios_permitidos (dominio) values ('umb.edu.co');
+```
+
+- `umb.edu.co` también acepta subdominios como `@academia.umb.edu.co`. Si quieres **solo** estudiantes, usa el dominio exacto de su correo (por ejemplo `academia.umb.edu.co`).
+- La base de datos rechaza cualquier registro de otro dominio, tanto con correo como con Google. La página lo avisa antes de enviar el formulario.
+- Las cuentas que ya existían con otro dominio (por ejemplo Gmail) se cierran al intentar entrar. Los **administradores** sí pueden entrar con cualquier correo.
+- Para quitar la restricción: `delete from public.dominios_permitidos;`
 
 ### 5. Publicar en GitHub Pages
 
@@ -125,6 +143,41 @@ Abre la carpeta en VS Code y usa la extensión **Live Server**. Así la abres co
 └── supabase/schema.sql (base de datos completa)
 ```
 
+## Seguimiento de pedidos
+
+Cada tienda maneja el estado de **sus** productos dentro del pedido:
+
+| Estado | Quién lo cambia | Qué significa |
+|---|---|---|
+| Pendiente | (automático) | El cliente hizo el pedido |
+| Confirmado | Vendedor | El vendedor lo aceptó y lo está preparando |
+| Enviado | Vendedor | Va en camino |
+| Entregado | Vendedor **o** cliente («Ya lo recibí») | El cliente lo tiene |
+| Cancelado | Vendedor (antes de enviar) o cliente (mientras siga pendiente) | Las unidades vuelven al inventario |
+
+- El vendedor gestiona todo desde **Mi tienda → Pedidos recibidos**.
+- El cliente ve el progreso en **Mis pedidos** y confirma con **Ya lo recibí**.
+- Cada cambio queda en la tabla `pedido_eventos`, con quién lo hizo y cuándo. Así se sabe si la entrega la confirmó el cliente o el vendedor.
+
 ## Pagos
 
 El checkout registra el pedido con pago **contra entrega**, **Nequi/Daviplata** o **transferencia**. El vendedor contacta al comprador para coordinar. No se cobra en línea. Para cobrar con tarjeta o PSE hace falta una pasarela como Wompi o Mercado Pago con un backend (por ejemplo, Supabase Edge Functions).
+
+---
+
+## Problemas frecuentes (ya resueltos en `schema.sql`)
+
+| Mensaje | Causa | Solución |
+|---|---|---|
+| `Database error saving new user` | Un disparador viejo sobre `auth.users` (p. ej. `trigger_crear_perfil`) fallaba al registrar | `schema.sql` elimina todos los disparadores antiguos y deja solo `al_crear_usuario` y `al_actualizar_usuario` |
+| `column "creado_en" does not exist` | Tablas antiguas `pedidos` / `accesos` / `tiendas` con otra estructura | `schema.sql` las renombra a `<tabla>_anterior_<fecha>` (sin borrar datos) y crea las nuevas |
+| `violates check constraint "perfiles_rol_check"` | La tabla `perfiles` antigua tenía `comprador` como rol por defecto | `schema.sql` convierte los roles y cambia el valor por defecto a `cliente` |
+| `duplicate key value violates unique constraint "productos_pkey"` | Productos insertados con id manual; el contador automático quedó atrás | `schema.sql` sincroniza los contadores al final |
+| Error en `index.html` (404) en GitHub Pages | Los archivos quedaron dentro de una subcarpeta del repositorio | Subir el **contenido** de la carpeta a la raíz del repositorio |
+| Página de «Mis pedidos» se queda cargando | Archivos JS de distintas versiones (caché del navegador) | Subir todos los archivos del zip juntos y recargar con Ctrl + Shift + R |
+
+Comprobar los disparadores activos:
+
+```sql
+select tgname from pg_trigger where tgrelid = 'auth.users'::regclass and not tgisinternal;
+```

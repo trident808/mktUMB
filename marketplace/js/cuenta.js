@@ -7,7 +7,7 @@
   const navegadorCorto = UMB.navegadorCorto;
 
   const ROLES = { cliente: "Comprador", vendedor: "Vendedor", admin: "Administrador" };
-  const PROVEEDORES = { email: "Correo y contraseña", google: "Google" };
+  const PROVEEDORES = { email: "Correo y contraseña", google: "Google", azure: "Microsoft (UMB)" };
 
   /* ======================= Mi cuenta ======================= */
 
@@ -68,7 +68,7 @@
 
     // Cambiar contraseña
     const formClave = $("#form-clave");
-    if (perfil.proveedor === "google") {
+    if (perfil.proveedor && perfil.proveedor !== "email") {
       $("#nota-google").hidden = false;
     }
     formClave.addEventListener("submit", async (e) => {
