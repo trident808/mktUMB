@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="marketplace/css/styles.css?v=0cbdc2db">
+  <link rel="stylesheet" href="marketplace/css/styles.css?v=3c0f9e5f">
   <script>try{var t=JSON.parse(localStorage.getItem("umb_tema"));if(t==="claro"||t==="oscuro")document.documentElement.dataset.tema=t}catch(e){}</script>
 </head>
 <body data-pagina="login">
@@ -41,6 +41,13 @@
         <a class="btn btn-fantasma btn-sm solo-escritorio" href="login.html" data-sin-sesion>Ingresar</a>
         <a class="btn btn-primario btn-sm solo-ancho" href="registro.html" data-sin-sesion>Crear cuenta</a>
         <div class="usuario-menu" data-con-sesion hidden>
+          <button class="btn-icono" id="btn-notificaciones" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Notificaciones"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 16V11a6 6 0 1 1 12 0v5l1.5 2h-15L6 16z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M10 20.5a2.2 2.2 0 0 0 4 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span class="contador" data-contador-notif></span></button>
+          <div class="menu-desplegable panel-notif" id="panel-notificaciones" hidden>
+            <div class="menu-cabecera">Notificaciones</div>
+            <div id="panel-notificaciones-lista"></div>
+          </div>
+        </div>
+        <div class="usuario-menu" data-con-sesion hidden>
           <button class="usuario-boton" id="usuario-boton" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Menú de tu cuenta"><span class="avatar">·</span></button>
           <div class="menu-desplegable" id="usuario-desplegable" hidden>
             <div class="menu-cabecera" id="menu-correo"></div>
@@ -48,6 +55,7 @@
             <a href="pedidos.html">📦 Mis pedidos</a>
             <a href="mi-cuenta.html#favoritos">♡ Favoritos</a>
             <a href="vender.html">🏪 Mi tienda</a>
+            <a href="verificacion.html">🪪 Verificación de cuenta</a>
             <a href="admin.html" data-solo-admin hidden>🛡️ Administración</a>
             <hr>
             <button type="button" data-cerrar-sesion>↩ Cerrar sesión</button>
@@ -68,11 +76,13 @@
       </aside>
       <div class="auth-centro">
         <div class="auth-caja">
-          <h1>Iniciar sesión</h1>
-          <p class="muted">¿No tienes cuenta? <a class="enlace" href="registro.html">Regístrate gratis</a></p>
-          <button class="btn btn-google btn-bloque" type="button" data-oauth="azure"><svg viewBox="0 0 21 21" aria-hidden="true"><rect x="1" y="1" width="9" height="9" fill="#f25022"/><rect x="11" y="1" width="9" height="9" fill="#7fba00"/><rect x="1" y="11" width="9" height="9" fill="#00a4ef"/><rect x="11" y="11" width="9" height="9" fill="#ffb900"/></svg> Continuar con Microsoft (correo UMB)</button>
-          <div class="separador">o con tu correo</div>
-          <form class="formulario" id="form-login">
+          <div data-ocultar-al-pedir-codigo>
+            <h1>Iniciar sesión</h1>
+            <p class="muted">¿No tienes cuenta? <a class="enlace" href="registro.html">Regístrate gratis</a></p>
+            <button class="btn btn-google btn-bloque" type="button" data-oauth="azure"><svg viewBox="0 0 21 21" aria-hidden="true"><rect x="1" y="1" width="9" height="9" fill="#f25022"/><rect x="11" y="1" width="9" height="9" fill="#7fba00"/><rect x="1" y="11" width="9" height="9" fill="#00a4ef"/><rect x="11" y="11" width="9" height="9" fill="#ffb900"/></svg> Continuar con Microsoft (correo UMB)</button>
+            <div class="separador">o con tu correo</div>
+          </div>
+          <form class="formulario" id="form-login" data-ocultar-al-pedir-codigo>
             <div class="campo">
               <label for="correo">Correo electrónico</label>
               <input id="correo" name="correo" type="email" required autocomplete="email" placeholder="tu@correo.com">
@@ -92,6 +102,29 @@
             </div>
             <p class="mensaje" id="mensaje" role="status"></p>
             <button class="btn btn-primario btn-bloque" type="submit">Iniciar sesión</button>
+          </form>
+          <form class="formulario" id="form-codigo" hidden>
+            <div class="exito-icono"><svg viewBox="0 0 24 24" fill="none"><path d="M4 6h16v12H4z M4 7l8 6 8-6" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></div>
+            <h2 style="text-align:center">Revisa tu correo</h2>
+            <p class="muted" style="text-align:center;margin:0">Escribe el código de verificación que enviamos a <strong id="codigo-correo"></strong>. Si no lo ves, revisa «Correo no deseado».</p>
+            <div class="campo">
+              <label for="codigo">Código de verificación</label>
+              <input id="codigo" name="codigo" class="input-codigo" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9 ]{6,12}" maxlength="12" required placeholder="000000">
+            </div>
+            <p class="mensaje" id="mensaje-codigo" role="status"></p>
+            <button class="btn btn-primario btn-bloque" type="submit">Verificar mi correo</button>
+            <button class="boton-texto" type="button" id="reenviar-codigo">Reenviar el código</button>
+          </form>
+          <form class="formulario" id="form-mfa" hidden>
+            <h2>Verificación en dos pasos</h2>
+            <p class="muted" style="margin:0">Abre tu app de autenticación (Google Authenticator, Microsoft Authenticator…) y escribe el código de 6 dígitos de Marketplace UMB.</p>
+            <div class="campo">
+              <label for="codigo-mfa">Código de la app</label>
+              <input id="codigo-mfa" name="codigo" class="input-codigo" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9 ]{6,7}" maxlength="7" required placeholder="000000">
+            </div>
+            <p class="mensaje" id="mensaje-mfa" role="status"></p>
+            <button class="btn btn-primario btn-bloque" type="submit">Continuar</button>
+            <button class="boton-texto" type="button" id="mfa-salir">Cerrar sesión</button>
           </form>
         </div>
       </div>
@@ -125,6 +158,7 @@
           <li><a href="login.html">Iniciar sesión</a></li>
           <li><a href="registro.html">Crear cuenta</a></li>
           <li><a href="privacidad.html">Tratamiento de datos</a></li>
+          <li><a href="terminos.html">Términos y condiciones</a></li>
         </ul>
       </div>
     </div>
@@ -136,8 +170,8 @@
   <div class="toasts" id="toasts" aria-live="polite"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-  <script src="marketplace/js/config.js?v=0cbdc2db"></script>
-  <script src="marketplace/js/app.js?v=0cbdc2db"></script>
-  <script src="marketplace/js/auth.js?v=0cbdc2db"></script>
+  <script src="marketplace/js/config.js?v=3c0f9e5f"></script>
+  <script src="marketplace/js/app.js?v=3c0f9e5f"></script>
+  <script src="marketplace/js/auth.js?v=3c0f9e5f"></script>
 </body>
 </html>

@@ -4,16 +4,16 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Administración | Marketplace UMB</title>
-  <meta name="description" content="Panel de administración de Marketplace UMB.">
+  <meta name="description" content="Panel de administración y moderación de Marketplace UMB.">
   <meta name="theme-color" content="#c8102e">
   <meta property="og:title" content="Administración | Marketplace UMB">
-  <meta property="og:description" content="Panel de administración de Marketplace UMB.">
+  <meta property="og:description" content="Panel de administración y moderación de Marketplace UMB.">
   <meta property="og:image" content="marketplace/img/imagen-principal.jpg">
   <link rel="icon" href="marketplace/img/favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="marketplace/css/styles.css?v=0cbdc2db">
+  <link rel="stylesheet" href="marketplace/css/styles.css?v=3c0f9e5f">
   <script>try{var t=JSON.parse(localStorage.getItem("umb_tema"));if(t==="claro"||t==="oscuro")document.documentElement.dataset.tema=t}catch(e){}</script>
 </head>
 <body data-pagina="admin">
@@ -41,6 +41,13 @@
         <a class="btn btn-fantasma btn-sm solo-escritorio" href="login.html" data-sin-sesion>Ingresar</a>
         <a class="btn btn-primario btn-sm solo-ancho" href="registro.html" data-sin-sesion>Crear cuenta</a>
         <div class="usuario-menu" data-con-sesion hidden>
+          <button class="btn-icono" id="btn-notificaciones" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Notificaciones"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 16V11a6 6 0 1 1 12 0v5l1.5 2h-15L6 16z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M10 20.5a2.2 2.2 0 0 0 4 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span class="contador" data-contador-notif></span></button>
+          <div class="menu-desplegable panel-notif" id="panel-notificaciones" hidden>
+            <div class="menu-cabecera">Notificaciones</div>
+            <div id="panel-notificaciones-lista"></div>
+          </div>
+        </div>
+        <div class="usuario-menu" data-con-sesion hidden>
           <button class="usuario-boton" id="usuario-boton" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Menú de tu cuenta"><span class="avatar">·</span></button>
           <div class="menu-desplegable" id="usuario-desplegable" hidden>
             <div class="menu-cabecera" id="menu-correo"></div>
@@ -48,6 +55,7 @@
             <a href="pedidos.html">📦 Mis pedidos</a>
             <a href="mi-cuenta.html#favoritos">♡ Favoritos</a>
             <a href="vender.html">🏪 Mi tienda</a>
+            <a href="verificacion.html">🪪 Verificación de cuenta</a>
             <a href="admin.html" data-solo-admin hidden>🛡️ Administración</a>
             <hr>
             <button type="button" data-cerrar-sesion>↩ Cerrar sesión</button>
@@ -65,37 +73,142 @@
         <div id="sin-permiso" class="vacio" hidden>
           <div class="vacio-icono">🔒</div>
           <h1>Acceso restringido</h1>
-          <p>Esta sección es solo para administradores. Para habilitarla, en Supabase cambia el campo <code>rol</code> de tu perfil a <code>admin</code>.</p>
+          <p>Esta sección es solo para administradores y moderadores.</p>
           <a class="btn btn-primario" href="index.html">Volver al inicio</a>
         </div>
         <div id="panel-admin" hidden>
-          <div class="pagina-cabecera"><span class="eyebrow">Administración</span><h1>Usuarios registrados</h1><p>Datos de registro e inicios de sesión guardados en Supabase.</p></div>
+          <div class="pagina-cabecera"><span class="eyebrow">Administración</span><h1>Panel de moderación</h1><p id="admin-rol"></p></div>
           <p class="mensaje" id="mensaje-admin" role="status"></p>
-          <div class="estadisticas">
-            <div class="estadistica"><span>Usuarios</span><strong id="st-usuarios">—</strong></div>
-            <div class="estadistica"><span>Nuevos (7 días)</span><strong id="st-nuevos">—</strong></div>
-            <div class="estadistica"><span>Inicios de sesión hoy</span><strong id="st-hoy">—</strong></div>
-            <div class="estadistica"><span>Pedidos</span><strong id="st-pedidos">—</strong></div>
+          <div class="pestanas" role="tablist" id="admin-pestanas">
+            <button role="tab" type="button" data-tab="resumen" aria-selected="true">Resumen</button>
+            <button role="tab" type="button" data-tab="verificaciones" aria-selected="false">Verificaciones <span class="contador-tab" id="n-verificaciones"></span></button>
+            <button role="tab" type="button" data-tab="publicaciones" aria-selected="false">Publicaciones <span class="contador-tab" id="n-publicaciones"></span></button>
+            <button role="tab" type="button" data-tab="reportes" aria-selected="false">Reportes <span class="contador-tab" id="n-reportes"></span></button>
+            <button role="tab" type="button" data-tab="usuarios" aria-selected="false">Usuarios</button>
+            <button role="tab" type="button" data-tab="configuracion" aria-selected="false" data-solo-admin-tab>Configuración</button>
+            <button role="tab" type="button" data-tab="auditoria" aria-selected="false" data-solo-admin-tab>Auditoría</button>
           </div>
-          <div class="catalogo-barra">
-            <div class="buscador" style="max-width:360px;flex:1 1 260px">
-              <input id="buscar-usuarios" type="search" placeholder="Buscar por nombre, correo o teléfono" aria-label="Buscar usuarios">
+
+          <section data-panel="resumen" role="tabpanel">
+            <div class="estadisticas">
+              <div class="estadistica"><span>Usuarios</span><strong id="st-usuarios">—</strong></div>
+              <div class="estadistica"><span>Verificados</span><strong id="st-verificados">—</strong></div>
+              <div class="estadistica"><span>Inicios de sesión hoy</span><strong id="st-hoy">—</strong></div>
+              <div class="estadistica"><span>Pedidos</span><strong id="st-pedidos">—</strong></div>
             </div>
-            <div class="catalogo-controles"><span class="muted" id="contador-usuarios"></span><button class="btn btn-linea btn-sm" id="btn-exportar" type="button">Descargar CSV (Excel)</button></div>
-          </div>
-          <div class="tabla-envoltura">
-            <table>
-              <thead><tr><th>Nombre</th><th>Correo</th><th>Teléfono</th><th>Rol</th><th>Ingreso con</th><th>Registro</th><th>Último acceso</th><th>Accesos</th></tr></thead>
-              <tbody id="tabla-usuarios"><tr><td colspan="8" class="muted">Cargando…</td></tr></tbody>
-            </table>
-          </div>
-          <h2 style="margin-top:2.5rem">Actividad reciente</h2>
-          <div class="tabla-envoltura">
-            <table>
-              <thead><tr><th>Fecha</th><th>Correo</th><th>Evento</th><th>Método</th><th>Navegador</th></tr></thead>
-              <tbody id="tabla-accesos"></tbody>
-            </table>
-          </div>
+            <h2>Actividad reciente</h2>
+            <div class="tabla-envoltura">
+              <table>
+                <thead><tr><th>Fecha</th><th>Correo</th><th>Evento</th><th>Método</th><th>Navegador</th></tr></thead>
+                <tbody id="tabla-accesos"><tr><td colspan="5" class="muted">Cargando…</td></tr></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section data-panel="verificaciones" role="tabpanel" hidden>
+            <div class="seccion-cabecera" style="margin-bottom:1rem">
+              <div><h2 style="margin:0">Verificación de identidad</h2><p>Compara la selfie con el documento y revisa que el carné esté vigente.</p></div>
+              <div class="chips">
+                <button class="chip" type="button" data-filtro-ver="pendiente" aria-pressed="true">Pendientes</button>
+                <button class="chip" type="button" data-filtro-ver="revisadas" aria-pressed="false">Revisadas</button>
+              </div>
+            </div>
+            <div id="lista-verificaciones"><div class="esqueleto" style="min-height:160px"></div></div>
+          </section>
+
+          <section data-panel="publicaciones" role="tabpanel" hidden>
+            <div class="seccion-cabecera" style="margin-bottom:1rem">
+              <div><h2 style="margin:0">Moderación de publicaciones</h2><p>Revisa que una foto muestre el código escrito en papel, que las fotos sean reales y que el producto esté permitido.</p></div>
+              <div class="chips">
+                <button class="chip" type="button" data-filtro-pub="pendiente" aria-pressed="true">Por revisar</button>
+                <button class="chip" type="button" data-filtro-pub="rechazado" aria-pressed="false">Rechazadas</button>
+                <button class="chip" type="button" data-filtro-pub="aprobado" aria-pressed="false">Publicadas</button>
+              </div>
+            </div>
+            <div id="lista-publicaciones"><div class="esqueleto" style="min-height:160px"></div></div>
+          </section>
+
+          <section data-panel="reportes" role="tabpanel" hidden>
+            <div class="seccion-cabecera" style="margin-bottom:1rem">
+              <div><h2 style="margin:0">Reportes de la comunidad</h2><p>Con <span id="umbral-reportes">3</span> reportes confirmados, el vendedor se suspende automáticamente.</p></div>
+              <div class="chips">
+                <button class="chip" type="button" data-filtro-rep="abierto" aria-pressed="true">Abiertos</button>
+                <button class="chip" type="button" data-filtro-rep="resueltos" aria-pressed="false">Resueltos</button>
+              </div>
+            </div>
+            <div id="lista-reportes"><div class="esqueleto" style="min-height:160px"></div></div>
+          </section>
+
+          <section data-panel="usuarios" role="tabpanel" hidden>
+            <div class="catalogo-barra">
+              <div class="buscador" style="max-width:360px;flex:1 1 260px">
+                <input id="buscar-usuarios" type="search" placeholder="Buscar por nombre o correo" aria-label="Buscar usuarios">
+              </div>
+              <div class="catalogo-controles">
+                <select id="filtro-estado-cuenta" aria-label="Filtrar por estado">
+                  <option value="">Todos los estados</option>
+                  <option value="pendiente">Pendientes</option>
+                  <option value="verificado">Verificados</option>
+                  <option value="suspendido">Suspendidos</option>
+                  <option value="egresado">Egresados/Inactivos</option>
+                </select>
+                <span class="muted" id="contador-usuarios"></span>
+                <button class="btn btn-linea btn-sm" id="btn-exportar" type="button">Descargar CSV</button>
+              </div>
+            </div>
+            <div class="tabla-envoltura">
+              <table>
+                <thead><tr><th>Nombre</th><th>Correo</th><th>Estado</th><th>Rol</th><th>Sede</th><th>Registro</th><th>Último acceso</th><th></th></tr></thead>
+                <tbody id="tabla-usuarios"><tr><td colspan="8" class="muted">Cargando…</td></tr></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section data-panel="configuracion" role="tabpanel" hidden>
+            <div class="tarjeta">
+              <h2>Sedes</h2>
+              <p class="muted" style="font-size:.9rem">Aparecen en los perfiles de vendedor y en los filtros del catálogo.</p>
+              <ul class="lista-simple" id="lista-sedes"></ul>
+              <form class="fila-campos" id="form-sede" style="margin-top:1rem;align-items:end">
+                <div class="campo"><label for="sede-nombre">Nueva sede</label><input id="sede-nombre" name="nombre" required minlength="2" maxlength="80" placeholder="Nombre"></div>
+                <div class="campo"><label for="sede-ciudad">Ciudad</label><input id="sede-ciudad" name="ciudad" maxlength="80" placeholder="Ciudad"></div>
+                <div><button class="btn btn-primario" type="submit">Agregar sede</button></div>
+              </form>
+            </div>
+            <div class="tarjeta">
+              <h2>Categorías</h2>
+              <ul class="lista-simple" id="lista-categorias"></ul>
+              <form class="fila-campos" id="form-categoria" style="margin-top:1rem;align-items:end">
+                <div class="campo"><label for="cat-nombre">Nueva categoría</label><input id="cat-nombre" name="nombre" required minlength="2" maxlength="60"></div>
+                <div class="campo"><label for="cat-icono">Ícono (emoji)</label><input id="cat-icono" name="icono" maxlength="4" placeholder="✨"></div>
+                <div><button class="btn btn-primario" type="submit">Agregar</button></div>
+              </form>
+            </div>
+            <div class="tarjeta">
+              <h2>Productos prohibidos</h2>
+              <p class="muted" style="font-size:.9rem">Si el nombre o la descripción contienen una de estas palabras, la publicación se rechaza automáticamente (RF-10).</p>
+              <div class="etiquetas-palabras" id="lista-prohibidas"></div>
+              <form class="fila-campos" id="form-prohibida" style="margin-top:1rem;align-items:end">
+                <div class="campo"><label for="pp-palabra">Palabra o frase</label><input id="pp-palabra" name="palabra" required minlength="2" maxlength="60"></div>
+                <div class="campo"><label for="pp-motivo">Tipo</label><select id="pp-motivo" name="motivo"><option>Armas</option><option>Sustancias</option><option>Alcohol</option><option>Medicamentos</option><option>Trabajos académicos</option><option>Falsificados</option><option>Otro</option></select></div>
+                <div><button class="btn btn-primario" type="submit">Agregar</button></div>
+              </form>
+            </div>
+            <div class="tarjeta">
+              <h2>Parámetros</h2>
+              <form id="form-parametros" class="formulario"><div id="lista-parametros"></div><div><button class="btn btn-primario" type="submit">Guardar parámetros</button></div></form>
+            </div>
+          </section>
+
+          <section data-panel="auditoria" role="tabpanel" hidden>
+            <p class="muted">Todas las acciones de administradores y moderadores (RF-40).</p>
+            <div class="tabla-envoltura">
+              <table>
+                <thead><tr><th>Fecha</th><th>Quién</th><th>Acción</th><th>Sobre</th><th>Detalle</th></tr></thead>
+                <tbody id="tabla-auditoria"><tr><td colspan="5" class="muted">Cargando…</td></tr></tbody>
+              </table>
+            </div>
+          </section>
         </div>
       </div>
     </div>
@@ -128,6 +241,7 @@
           <li><a href="login.html">Iniciar sesión</a></li>
           <li><a href="registro.html">Crear cuenta</a></li>
           <li><a href="privacidad.html">Tratamiento de datos</a></li>
+          <li><a href="terminos.html">Términos y condiciones</a></li>
         </ul>
       </div>
     </div>
@@ -139,8 +253,8 @@
   <div class="toasts" id="toasts" aria-live="polite"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-  <script src="marketplace/js/config.js?v=0cbdc2db"></script>
-  <script src="marketplace/js/app.js?v=0cbdc2db"></script>
-  <script src="marketplace/js/admin.js?v=0cbdc2db"></script>
+  <script src="marketplace/js/config.js?v=3c0f9e5f"></script>
+  <script src="marketplace/js/app.js?v=3c0f9e5f"></script>
+  <script src="marketplace/js/admin.js?v=3c0f9e5f"></script>
 </body>
 </html>

@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="marketplace/css/styles.css?v=0cbdc2db">
+  <link rel="stylesheet" href="marketplace/css/styles.css?v=3c0f9e5f">
   <script>try{var t=JSON.parse(localStorage.getItem("umb_tema"));if(t==="claro"||t==="oscuro")document.documentElement.dataset.tema=t}catch(e){}</script>
 </head>
 <body data-pagina="inicio">
@@ -41,6 +41,13 @@
         <a class="btn btn-fantasma btn-sm solo-escritorio" href="login.html" data-sin-sesion>Ingresar</a>
         <a class="btn btn-primario btn-sm solo-ancho" href="registro.html" data-sin-sesion>Crear cuenta</a>
         <div class="usuario-menu" data-con-sesion hidden>
+          <button class="btn-icono" id="btn-notificaciones" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Notificaciones"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 16V11a6 6 0 1 1 12 0v5l1.5 2h-15L6 16z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M10 20.5a2.2 2.2 0 0 0 4 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span class="contador" data-contador-notif></span></button>
+          <div class="menu-desplegable panel-notif" id="panel-notificaciones" hidden>
+            <div class="menu-cabecera">Notificaciones</div>
+            <div id="panel-notificaciones-lista"></div>
+          </div>
+        </div>
+        <div class="usuario-menu" data-con-sesion hidden>
           <button class="usuario-boton" id="usuario-boton" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Menú de tu cuenta"><span class="avatar">·</span></button>
           <div class="menu-desplegable" id="usuario-desplegable" hidden>
             <div class="menu-cabecera" id="menu-correo"></div>
@@ -48,6 +55,7 @@
             <a href="pedidos.html">📦 Mis pedidos</a>
             <a href="mi-cuenta.html#favoritos">♡ Favoritos</a>
             <a href="vender.html">🏪 Mi tienda</a>
+            <a href="verificacion.html">🪪 Verificación de cuenta</a>
             <a href="admin.html" data-solo-admin hidden>🛡️ Administración</a>
             <hr>
             <button type="button" data-cerrar-sesion>↩ Cerrar sesión</button>
@@ -108,18 +116,25 @@
           <div><span class="eyebrow">Catálogo</span><h2 id="t-catalogo">Todos los productos</h2><p id="contador-resultados">Cargando…</p></div>
         </div>
         <p class="mensaje info" id="aviso-demo" hidden>No se pudo cargar el catálogo. Revisa tu conexión e intenta de nuevo.</p>
-        <div class="catalogo-barra">
-          <div class="chips" id="chips" aria-label="Filtrar por categoría"></div>
-          <div class="catalogo-controles">
-            <label class="check-linea"><input type="checkbox" id="solo-disponibles"> Solo disponibles</label>
-            <select id="orden" aria-label="Ordenar productos">
+        <div class="chips" id="chips" aria-label="Filtrar por categoría" style="margin-bottom:.9rem"></div>
+        <form class="filtros" id="filtros" aria-label="Filtros del catálogo">
+          <div class="filtro"><label for="f-min">Precio mínimo</label><input id="f-min" name="min" type="number" min="0" step="1000" inputmode="numeric" placeholder="$0"></div>
+          <div class="filtro"><label for="f-max">Precio máximo</label><input id="f-max" name="max" type="number" min="0" step="1000" inputmode="numeric" placeholder="Sin límite"></div>
+          <div class="filtro"><label for="f-estado">Estado</label><select id="f-estado" name="estado"><option value="">Todos</option><option value="nuevo">Nuevo</option><option value="usado">Usado</option></select></div>
+          <div class="filtro"><label for="f-sede">Sede</label><select id="f-sede" name="sede"><option value="">Todas</option></select></div>
+          <div class="filtro"><label for="f-entrega">Entrega</label><select id="f-entrega" name="entrega"><option value="">Cualquiera</option><option value="en_u">Dentro de la U</option><option value="domicilio">A domicilio</option></select></div>
+          <div class="filtro"><label for="orden">Ordenar por</label>
+            <select id="orden" name="orden">
+              <option value="relevancia">Relevancia</option>
               <option value="recientes">Más recientes</option>
               <option value="precio-asc">Menor precio</option>
               <option value="precio-desc">Mayor precio</option>
               <option value="rating">Mejor calificados</option>
             </select>
           </div>
-        </div>
+          <label class="check-linea filtro-check"><input type="checkbox" id="solo-disponibles" name="disponibles"> Solo disponibles</label>
+          <button class="boton-texto" type="reset" id="limpiar-todo">Limpiar filtros</button>
+        </form>
         <div class="productos-grid" id="catalogo-grid">
           <div class="esqueleto"></div><div class="esqueleto"></div><div class="esqueleto"></div><div class="esqueleto"></div>
         </div>
@@ -173,6 +188,7 @@
           <li><a href="login.html">Iniciar sesión</a></li>
           <li><a href="registro.html">Crear cuenta</a></li>
           <li><a href="privacidad.html">Tratamiento de datos</a></li>
+          <li><a href="terminos.html">Términos y condiciones</a></li>
         </ul>
       </div>
     </div>
@@ -184,8 +200,8 @@
   <div class="toasts" id="toasts" aria-live="polite"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-  <script src="marketplace/js/config.js?v=0cbdc2db"></script>
-  <script src="marketplace/js/app.js?v=0cbdc2db"></script>
-  <script src="marketplace/js/catalogo.js?v=0cbdc2db"></script>
+  <script src="marketplace/js/config.js?v=3c0f9e5f"></script>
+  <script src="marketplace/js/app.js?v=3c0f9e5f"></script>
+  <script src="marketplace/js/catalogo.js?v=3c0f9e5f"></script>
 </body>
 </html>

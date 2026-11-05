@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="marketplace/css/styles.css?v=0cbdc2db">
+  <link rel="stylesheet" href="marketplace/css/styles.css?v=3c0f9e5f">
   <script>try{var t=JSON.parse(localStorage.getItem("umb_tema"));if(t==="claro"||t==="oscuro")document.documentElement.dataset.tema=t}catch(e){}</script>
 </head>
 <body data-pagina="vender">
@@ -41,6 +41,13 @@
         <a class="btn btn-fantasma btn-sm solo-escritorio" href="login.html" data-sin-sesion>Ingresar</a>
         <a class="btn btn-primario btn-sm solo-ancho" href="registro.html" data-sin-sesion>Crear cuenta</a>
         <div class="usuario-menu" data-con-sesion hidden>
+          <button class="btn-icono" id="btn-notificaciones" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Notificaciones"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 16V11a6 6 0 1 1 12 0v5l1.5 2h-15L6 16z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M10 20.5a2.2 2.2 0 0 0 4 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span class="contador" data-contador-notif></span></button>
+          <div class="menu-desplegable panel-notif" id="panel-notificaciones" hidden>
+            <div class="menu-cabecera">Notificaciones</div>
+            <div id="panel-notificaciones-lista"></div>
+          </div>
+        </div>
+        <div class="usuario-menu" data-con-sesion hidden>
           <button class="usuario-boton" id="usuario-boton" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Menú de tu cuenta"><span class="avatar">·</span></button>
           <div class="menu-desplegable" id="usuario-desplegable" hidden>
             <div class="menu-cabecera" id="menu-correo"></div>
@@ -48,6 +55,7 @@
             <a href="pedidos.html">📦 Mis pedidos</a>
             <a href="mi-cuenta.html#favoritos">♡ Favoritos</a>
             <a href="vender.html">🏪 Mi tienda</a>
+            <a href="verificacion.html">🪪 Verificación de cuenta</a>
             <a href="admin.html" data-solo-admin hidden>🛡️ Administración</a>
             <hr>
             <button type="button" data-cerrar-sesion>↩ Cerrar sesión</button>
@@ -64,6 +72,13 @@
       <div class="contenedor">
         <div id="cargando-panel" class="esqueleto" style="min-height:300px"></div>
         <p class="mensaje" id="error-panel" hidden></p>
+
+        <div id="sin-verificar" class="vacio" hidden>
+          <div class="vacio-icono">🪪</div>
+          <h1>Verifica tu identidad para vender</h1>
+          <p id="sin-verificar-texto">Para proteger a la comunidad, solo los estudiantes verificados pueden publicar productos. Sube una foto de tu carné, de tu documento y una selfie; un moderador las revisa.</p>
+          <a class="btn btn-primario" href="verificacion.html">Verificar mi cuenta</a>
+        </div>
 
         <div id="crear-tienda" hidden>
           <div class="pagina-cabecera"><span class="eyebrow">Para emprendedores</span><h1>Abre tu tienda</h1><p>Cuéntale a la comunidad qué haces. Podrás publicar productos en cuanto la crees.</p></div>
@@ -98,31 +113,78 @@
               <div><strong id="total-pedidos">0</strong><span>pedidos</span></div>
             </div>
           </div>
-          <div class="dos-columnas" style="grid-template-columns:minmax(0,1fr) 420px">
-            <section>
-              <h2>Mis productos</h2>
-              <div class="mis-productos" id="mis-productos"></div>
-            </section>
-            <form class="tarjeta formulario columna-lateral" id="form-producto">
-              <h2 id="titulo-form-producto">Publicar un producto</h2>
+          <section>
+            <div class="seccion-cabecera" style="margin-bottom:1rem">
+              <div><h2 style="margin:0">Mis publicaciones</h2><p>Cada publicación pasa por moderación antes de aparecer en el catálogo.</p></div>
+              <button class="btn btn-primario" type="button" id="btn-nueva-publicacion">＋ Publicar un producto</button>
+            </div>
+            <div class="mis-productos" id="mis-productos"></div>
+          </section>
+
+          <section class="tarjeta editor" id="editor-producto" hidden aria-labelledby="titulo-editor">
+            <div class="grupo-tienda-cabecera" style="margin-bottom:.5rem">
+              <h2 id="titulo-editor" style="margin:0">Nueva publicación</h2>
+              <button class="btn btn-fantasma btn-sm" type="button" id="btn-cerrar-editor">Cerrar</button>
+            </div>
+            <p class="mensaje info" id="nota-edicion" hidden></p>
+
+            <div class="paso-editor">
+              <h3><span class="num">1</span> Tu código de verificación</h3>
+              <div class="codigo-verificacion">
+                <strong id="codigo-publicacion">UMB-·····</strong>
+                <p>Escríbelo a mano en un papel y toma una foto del producto <strong>junto al papel</strong>. Así comprobamos que de verdad lo tienes.</p>
+              </div>
+            </div>
+
+            <div class="paso-editor">
+              <h3><span class="num">2</span> Fotos reales del producto <span class="muted" id="contador-fotos">(0 de mínimo 3)</span></h3>
+              <div class="fotos-editor" id="fotos-editor"></div>
+              <label class="subir-imagen" for="pr-fotos" style="margin-top:.75rem"><span style="font-size:1.6rem">📷</span><span>Toca para agregar fotos (puedes elegir varias)</span></label>
+              <input id="pr-fotos" type="file" accept="image/*" multiple class="sr-only">
+              <p class="nota">Marca con «Tiene el código» la foto donde se ve el papel. No uses fotos de internet: el sistema detecta fotos repetidas.</p>
+            </div>
+
+            <form class="paso-editor formulario" id="form-producto">
+              <h3><span class="num">3</span> Datos de la publicación</h3>
               <div class="campo"><label for="pr-nombre">Nombre</label><input id="pr-nombre" name="nombre" required minlength="3" maxlength="120" placeholder="Ej.: Brownie de chocolate"></div>
               <div class="fila-campos">
-                <div class="campo"><label for="pr-precio">Precio (COP)</label><input id="pr-precio" name="precio" type="number" min="100" step="100" required inputmode="numeric" placeholder="15000"></div>
-                <div class="campo"><label for="pr-stock">Unidades</label><input id="pr-stock" name="stock" type="number" min="0" step="1" required inputmode="numeric" placeholder="10"></div>
+                <div class="campo"><label for="pr-categoria">Categoría</label><select id="pr-categoria" name="categoria" required></select></div>
+                <fieldset class="campo" style="border:0;padding:0;margin:0">
+                  <legend class="etiqueta-campo" style="font-weight:600;font-size:.88rem;margin-bottom:.35rem">Estado</legend>
+                  <div class="opciones-linea">
+                    <label class="check-linea"><input type="radio" name="estado_producto" value="nuevo" checked> Nuevo</label>
+                    <label class="check-linea"><input type="radio" name="estado_producto" value="usado"> Usado</label>
+                  </div>
+                </fieldset>
               </div>
-              <div class="campo"><label for="pr-categoria">Categoría</label><select id="pr-categoria" name="categoria" required><option>Alimentos y bebidas</option><option>Artesanías</option><option>Moda y accesorios</option><option>Tecnología</option><option>Hogar</option><option>Belleza natural</option><option>Servicios</option><option>Otros</option></select></div>
-              <div class="campo"><label for="pr-descripcion">Descripción</label><textarea id="pr-descripcion" name="descripcion" maxlength="1000" placeholder="Ingredientes, materiales, tamaño…"></textarea></div>
-              <div class="campo">
-                <span class="etiqueta-campo">Foto</span>
-                <label class="subir-imagen" id="vista-imagen" for="pr-archivo"><span style="font-size:1.6rem">📷</span><span>Toca para subir una foto (JPG o PNG)</span></label>
-                <input id="pr-archivo" name="archivo" type="file" accept="image/*" class="sr-only">
-                <input name="imagen_url" type="url" placeholder="…o pega el enlace de una imagen" aria-label="Enlace de la imagen">
+              <div class="fila-campos">
+                <div class="campo"><label for="pr-precio">Precio (COP)</label><input id="pr-precio" name="precio" type="number" min="100" step="100" required inputmode="numeric" placeholder="15000"></div>
+                <div class="campo"><label for="pr-stock">Cantidad disponible</label><input id="pr-stock" name="stock" type="number" min="0" step="1" required inputmode="numeric" placeholder="10"></div>
+              </div>
+              <div class="campo"><label for="pr-descripcion">Descripción</label><textarea id="pr-descripcion" name="descripcion" minlength="20" maxlength="1500" required placeholder="Materiales, tamaño, ingredientes, estado de uso… (mínimo 20 caracteres)"></textarea></div>
+              <fieldset style="border:0;padding:0;margin:0">
+                <legend class="etiqueta-campo" style="font-weight:600;font-size:.88rem;margin-bottom:.35rem">Modalidades de entrega</legend>
+                <div class="opciones-linea">
+                  <label class="check-linea"><input type="checkbox" name="entrega_en_u" checked> Entrega dentro de la U</label>
+                  <label class="check-linea"><input type="checkbox" name="entrega_domicilio"> Envío a domicilio</label>
+                </div>
+              </fieldset>
+              <div class="campo" id="campo-tamano" hidden>
+                <label for="pr-tamano">Tamaño del paquete (para calcular el envío)</label>
+                <select id="pr-tamano" name="tamano">
+                  <option value="pequeno">Pequeño (cabe en un sobre o caja de zapatos)</option>
+                  <option value="mediano">Mediano (caja de hasta 40 cm)</option>
+                  <option value="grande">Grande (más de 40 cm o más de 5 kg)</option>
+                </select>
               </div>
               <p class="mensaje" id="mensaje-producto" role="status"></p>
-              <button class="btn btn-primario btn-bloque" id="btn-guardar-producto" type="submit">Publicar producto</button>
-              <button class="btn btn-fantasma btn-bloque" id="btn-cancelar-edicion" type="button" hidden>Cancelar edición</button>
+              <div class="acciones-pedido">
+                <button class="btn btn-primario" id="btn-enviar-revision" type="submit">Enviar a revisión</button>
+                <button class="btn btn-linea" id="btn-guardar-borrador" type="button">Guardar borrador</button>
+              </div>
             </form>
-          </div>
+          </section>
+
           <section style="margin-top:2.5rem">
             <div class="seccion-cabecera" style="margin-bottom:1rem">
               <div><h2 style="margin:0">Pedidos recibidos</h2><p>Avanza el estado a medida que preparas y entregas cada pedido.</p></div>
@@ -167,6 +229,7 @@
           <li><a href="login.html">Iniciar sesión</a></li>
           <li><a href="registro.html">Crear cuenta</a></li>
           <li><a href="privacidad.html">Tratamiento de datos</a></li>
+          <li><a href="terminos.html">Términos y condiciones</a></li>
         </ul>
       </div>
     </div>
@@ -178,8 +241,8 @@
   <div class="toasts" id="toasts" aria-live="polite"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-  <script src="marketplace/js/config.js?v=0cbdc2db"></script>
-  <script src="marketplace/js/app.js?v=0cbdc2db"></script>
-  <script src="marketplace/js/vender.js?v=0cbdc2db"></script>
+  <script src="marketplace/js/config.js?v=3c0f9e5f"></script>
+  <script src="marketplace/js/app.js?v=3c0f9e5f"></script>
+  <script src="marketplace/js/vender.js?v=3c0f9e5f"></script>
 </body>
 </html>

@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="marketplace/css/styles.css?v=0cbdc2db">
+  <link rel="stylesheet" href="marketplace/css/styles.css?v=3c0f9e5f">
   <script>try{var t=JSON.parse(localStorage.getItem("umb_tema"));if(t==="claro"||t==="oscuro")document.documentElement.dataset.tema=t}catch(e){}</script>
 </head>
 <body data-pagina="cuenta">
@@ -41,6 +41,13 @@
         <a class="btn btn-fantasma btn-sm solo-escritorio" href="login.html" data-sin-sesion>Ingresar</a>
         <a class="btn btn-primario btn-sm solo-ancho" href="registro.html" data-sin-sesion>Crear cuenta</a>
         <div class="usuario-menu" data-con-sesion hidden>
+          <button class="btn-icono" id="btn-notificaciones" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Notificaciones"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 16V11a6 6 0 1 1 12 0v5l1.5 2h-15L6 16z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M10 20.5a2.2 2.2 0 0 0 4 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span class="contador" data-contador-notif></span></button>
+          <div class="menu-desplegable panel-notif" id="panel-notificaciones" hidden>
+            <div class="menu-cabecera">Notificaciones</div>
+            <div id="panel-notificaciones-lista"></div>
+          </div>
+        </div>
+        <div class="usuario-menu" data-con-sesion hidden>
           <button class="usuario-boton" id="usuario-boton" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Menú de tu cuenta"><span class="avatar">·</span></button>
           <div class="menu-desplegable" id="usuario-desplegable" hidden>
             <div class="menu-cabecera" id="menu-correo"></div>
@@ -48,6 +55,7 @@
             <a href="pedidos.html">📦 Mis pedidos</a>
             <a href="mi-cuenta.html#favoritos">♡ Favoritos</a>
             <a href="vender.html">🏪 Mi tienda</a>
+            <a href="verificacion.html">🪪 Verificación de cuenta</a>
             <a href="admin.html" data-solo-admin hidden>🛡️ Administración</a>
             <hr>
             <button type="button" data-cerrar-sesion>↩ Cerrar sesión</button>
@@ -66,6 +74,7 @@
         <div class="cuenta-grid">
           <aside class="tarjeta">
             <div class="perfil-cabecera" id="perfil-cabecera"><span class="avatar avatar-grande">·</span><div><h2>Cargando…</h2></div></div>
+            <div id="estado-cuenta" style="margin-bottom:1rem"></div>
             <ul class="datos-lista" id="perfil-datos"></ul>
             <div style="display:grid;gap:.5rem;margin-top:1.25rem">
               <a class="btn btn-linea btn-bloque" href="pedidos.html">📦 Mis pedidos</a>
@@ -87,6 +96,16 @@
                   <div class="campo"><label for="p-correo">Correo</label><input id="p-correo" name="correo" type="email" readonly><small>El correo no se puede cambiar desde aquí.</small></div>
                   <div class="campo"><label for="p-telefono">Celular</label><input id="p-telefono" name="telefono" type="tel" pattern="[0-9 +]{7,16}" autocomplete="tel"></div>
                 </div>
+                <div class="fila-campos">
+                  <div class="campo"><label for="p-programa">Programa académico <span class="muted">(opcional)</span></label><input id="p-programa" name="programa" maxlength="120" placeholder="Ej.: Ingeniería de Software"><small>Se muestra en tu perfil de vendedor.</small></div>
+                  <div class="campo"><label for="p-sede">Sede</label><select id="p-sede" name="sede"><option value="">Selecciona…</option></select></div>
+                </div>
+                <fieldset style="border:0;padding:0;margin:0;display:grid;gap:.6rem">
+                  <legend class="etiqueta-campo" style="font-weight:600;font-size:.88rem;margin-bottom:.4rem">Privacidad y avisos</legend>
+                  <label class="casilla"><input type="checkbox" name="whatsapp_visible"> <span>Mostrar mi WhatsApp a las personas con las que tengo un pedido. Si no lo activas, se comunican solo por el chat de la plataforma.</span></label>
+                  <label class="casilla"><input type="checkbox" name="avisos_correo"> <span>Recibir avisos por correo sobre mis pedidos.</span></label>
+                  <label class="casilla"><input type="checkbox" name="avisos_whatsapp"> <span>Recibir avisos por WhatsApp sobre mis pedidos (requiere celular).</span></label>
+                </fieldset>
                 <p class="mensaje" id="mensaje-perfil" role="status"></p>
                 <div><button class="btn btn-primario" type="submit">Guardar cambios</button></div>
               </form>
@@ -119,6 +138,12 @@
                 <p class="mensaje" id="mensaje-clave" role="status"></p>
                 <div><button class="btn btn-primario" type="submit">Actualizar contraseña</button></div>
               </form>
+              <div class="tarjeta" id="tarjeta-2fa">
+                <h2>Verificación en dos pasos</h2>
+                <p class="muted" style="font-size:.9rem">Protege tu cuenta pidiendo, además de la contraseña, un código de una app como Google Authenticator o Microsoft Authenticator. Recomendado para vendedores.</p>
+                <div id="estado-2fa"><p class="muted">Cargando…</p></div>
+                <p class="mensaje" id="mensaje-2fa" role="status"></p>
+              </div>
               <div class="tarjeta">
                 <h2>Actividad reciente</h2>
                 <p class="muted" style="font-size:.9rem">Últimos accesos a tu cuenta. Si ves algo que no reconoces, cambia tu contraseña.</p>
@@ -158,6 +183,7 @@
           <li><a href="login.html">Iniciar sesión</a></li>
           <li><a href="registro.html">Crear cuenta</a></li>
           <li><a href="privacidad.html">Tratamiento de datos</a></li>
+          <li><a href="terminos.html">Términos y condiciones</a></li>
         </ul>
       </div>
     </div>
@@ -169,8 +195,8 @@
   <div class="toasts" id="toasts" aria-live="polite"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-  <script src="marketplace/js/config.js?v=0cbdc2db"></script>
-  <script src="marketplace/js/app.js?v=0cbdc2db"></script>
-  <script src="marketplace/js/cuenta.js?v=0cbdc2db"></script>
+  <script src="marketplace/js/config.js?v=3c0f9e5f"></script>
+  <script src="marketplace/js/app.js?v=3c0f9e5f"></script>
+  <script src="marketplace/js/cuenta.js?v=3c0f9e5f"></script>
 </body>
 </html>

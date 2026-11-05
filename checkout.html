@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="marketplace/css/styles.css?v=0cbdc2db">
+  <link rel="stylesheet" href="marketplace/css/styles.css?v=3c0f9e5f">
   <script>try{var t=JSON.parse(localStorage.getItem("umb_tema"));if(t==="claro"||t==="oscuro")document.documentElement.dataset.tema=t}catch(e){}</script>
 </head>
 <body data-pagina="checkout">
@@ -41,6 +41,13 @@
         <a class="btn btn-fantasma btn-sm solo-escritorio" href="login.html" data-sin-sesion>Ingresar</a>
         <a class="btn btn-primario btn-sm solo-ancho" href="registro.html" data-sin-sesion>Crear cuenta</a>
         <div class="usuario-menu" data-con-sesion hidden>
+          <button class="btn-icono" id="btn-notificaciones" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Notificaciones"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 16V11a6 6 0 1 1 12 0v5l1.5 2h-15L6 16z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M10 20.5a2.2 2.2 0 0 0 4 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span class="contador" data-contador-notif></span></button>
+          <div class="menu-desplegable panel-notif" id="panel-notificaciones" hidden>
+            <div class="menu-cabecera">Notificaciones</div>
+            <div id="panel-notificaciones-lista"></div>
+          </div>
+        </div>
+        <div class="usuario-menu" data-con-sesion hidden>
           <button class="usuario-boton" id="usuario-boton" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Menú de tu cuenta"><span class="avatar">·</span></button>
           <div class="menu-desplegable" id="usuario-desplegable" hidden>
             <div class="menu-cabecera" id="menu-correo"></div>
@@ -48,6 +55,7 @@
             <a href="pedidos.html">📦 Mis pedidos</a>
             <a href="mi-cuenta.html#favoritos">♡ Favoritos</a>
             <a href="vender.html">🏪 Mi tienda</a>
+            <a href="verificacion.html">🪪 Verificación de cuenta</a>
             <a href="admin.html" data-solo-admin hidden>🛡️ Administración</a>
             <hr>
             <button type="button" data-cerrar-sesion>↩ Cerrar sesión</button>
@@ -79,14 +87,17 @@
             <fieldset style="border:0;padding:0;margin:0">
               <legend class="etiqueta-campo" style="font-weight:600;font-size:.88rem;margin-bottom:.5rem">Forma de pago</legend>
               <div class="pagos">
+                <label class="pago" data-pago-en-linea hidden><input type="radio" name="pago" value="wompi"><span>Pagar en línea ahora <small>Nequi, Daviplata, PSE o tarjeta · con Wompi</small></span></label>
                 <label class="pago"><input type="radio" name="pago" value="contraentrega" checked><span>Pago contra entrega <small>Pagas al recibir</small></span></label>
-                <label class="pago"><input type="radio" name="pago" value="nequi"><span>Nequi / Daviplata <small>El vendedor te envía los datos</small></span></label>
-                <label class="pago"><input type="radio" name="pago" value="transferencia"><span>Transferencia bancaria <small>El vendedor te envía los datos</small></span></label>
+                <label class="pago"><input type="radio" name="pago" value="transferencia"><span>Transferencia directa al vendedor <small>Nequi, Daviplata o banco · te envía los datos</small></span></label>
               </div>
             </fieldset>
+            <div class="mensaje info" id="datos-prueba" hidden style="font-size:.85rem">
+              <strong>Modo de pruebas:</strong> no se cobra dinero real. En Wompi usa Nequi <code>3991111111</code> (aprobado) o <code>3992222222</code> (rechazado), o la tarjeta <code>4242 4242 4242 4242</code> con cualquier fecha futura y CVC.
+            </div>
             <p class="mensaje" id="mensaje" role="status"></p>
-            <button class="btn btn-primario btn-bloque" type="submit">Confirmar pedido</button>
-            <p class="nota" style="margin:0">Al confirmar, el vendedor recibe tu pedido y te contacta para coordinar la entrega. No se realizan cobros en línea.</p>
+            <button class="btn btn-primario btn-bloque" type="submit" id="btn-confirmar-pedido">Confirmar pedido</button>
+            <p class="nota" style="margin:0" id="nota-checkout">Al confirmar, el vendedor recibe tu pedido y te contacta para coordinar la entrega.</p>
           </form>
           <aside class="tarjeta resumen columna-lateral">
             <h2>Tu pedido</h2>
@@ -130,6 +141,7 @@
           <li><a href="login.html">Iniciar sesión</a></li>
           <li><a href="registro.html">Crear cuenta</a></li>
           <li><a href="privacidad.html">Tratamiento de datos</a></li>
+          <li><a href="terminos.html">Términos y condiciones</a></li>
         </ul>
       </div>
     </div>
@@ -141,8 +153,8 @@
   <div class="toasts" id="toasts" aria-live="polite"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-  <script src="marketplace/js/config.js?v=0cbdc2db"></script>
-  <script src="marketplace/js/app.js?v=0cbdc2db"></script>
-  <script src="marketplace/js/compra.js?v=0cbdc2db"></script>
+  <script src="marketplace/js/config.js?v=3c0f9e5f"></script>
+  <script src="marketplace/js/app.js?v=3c0f9e5f"></script>
+  <script src="marketplace/js/compra.js?v=3c0f9e5f"></script>
 </body>
 </html>
