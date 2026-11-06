@@ -120,6 +120,19 @@
     }
 
 
+    // Pago en línea (Wompi)
+    if (CFG.PAGOS_EN_LINEA) UMB.$$("[data-pago-en-linea]").forEach((el) => (el.hidden = false));
+    const actualizarBoton = () => {
+      const enLinea = form.pago.value === "wompi";
+      $("#btn-confirmar-pedido").textContent = enLinea ? "Continuar al pago" : "Confirmar pedido";
+      $("#datos-prueba").hidden = !(enLinea && CFG.PAGOS_MODO_PRUEBAS);
+      $("#nota-checkout").textContent = enLinea
+        ? "Te llevaremos a Wompi para pagar de forma segura. Al terminar volverás a «Mis pedidos»."
+        : "Al confirmar, el vendedor recibe tu pedido y te contacta para coordinar la entrega.";
+    };
+    form.addEventListener("change", (e) => { if (e.target.name === "pago") actualizarBoton(); });
+    actualizarBoton();
+
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
       const btn = form.querySelector('[type="submit"]');
@@ -145,6 +158,28 @@
       }
 
       UMB.carrito.vaciar();
+
+      if (form.pago.value === "wompi") {
+        UMB.cargando(btn, true);
+        UMB.mensaje(msg, "Pedido creado. Abriendo el pago seguro de Wompi…", "info");
+        try {
+          await UMB.irAPagar(data.id);
+          return;
+        } catch (err) {
+          UMB.cargando(btn, false);
+          $("#checkout-contenido").innerHTML = `
+            <div class="tarjeta exito-pedido">
+              <div class="exito-icono" style="background:#fff4d6;color:#7a5a00">!</div>
+              <h1>Tu pedido quedó guardado</h1>
+              <p>Pedido <span class="codigo">${esc(data.codigo)}</span>, pero no pudimos abrir el pago en línea.</p>
+              <p class="muted">${esc(err.message)}</p>
+              <p class="muted">Puedes intentarlo de nuevo desde «Mis pedidos» con el botón <strong>Pagar ahora</strong>.</p>
+              <div class="portada-acciones" style="justify-content:center"><a class="btn btn-primario" href="pedidos.html">Ir a mis pedidos</a></div>
+            </div>`;
+          return;
+        }
+      }
+
       $("#checkout-contenido").innerHTML = `
         <div class="tarjeta exito-pedido">
           <div class="exito-icono"><svg viewBox="0 0 24 24" fill="none"><path d="M5 12.5l4.5 4.5L19 7.5" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>

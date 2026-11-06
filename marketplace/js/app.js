@@ -197,6 +197,8 @@
     }
   };
 
+  // RF-14: favoritos. Se guardan en el navegador y, con sesión, también en la cuenta.
+  let favUsuario = null;
   UMB.favoritos = {
     lista() { return UMB.leer(FAV_KEY, []).map(String); },
     tiene(id) { return UMB.favoritos.lista().includes(String(id)); },
@@ -205,7 +207,27 @@
       const i = l.indexOf(String(id));
       if (i >= 0) l.splice(i, 1); else l.push(String(id));
       UMB.guardar(FAV_KEY, l);
+      if (favUsuario && UMB.db) {
+        const q = i >= 0
+          ? UMB.db.from("favoritos").delete().eq("usuario_id", favUsuario).eq("producto_id", String(id))
+          : UMB.db.from("favoritos").upsert({ usuario_id: favUsuario, producto_id: String(id) });
+        q.then(({ error }) => error && console.warn("[UMB] Favorito no sincronizado:", error.message));
+      }
       return i < 0;
+    },
+    /** Une los favoritos del navegador con los de la cuenta. */
+    async sincronizar(sesion) {
+      if (!UMB.db || !sesion) return;
+      favUsuario = sesion.user.id;
+      const { data, error } = await UMB.db.from("favoritos").select("producto_id");
+      if (error) return;
+      const remotos = (data || []).map((f) => String(f.producto_id));
+      const locales = UMB.favoritos.lista();
+      const faltan = locales.filter((id) => !remotos.includes(id));
+      if (faltan.length) {
+        await UMB.db.from("favoritos").upsert(faltan.map((id) => ({ usuario_id: favUsuario, producto_id: id })));
+      }
+      UMB.guardar(FAV_KEY, [...new Set([...remotos, ...locales])]);
     }
   };
 
@@ -272,6 +294,20 @@
         }
         if (error) throw error;
         const lista = (data || []).filter((p) => p.activo !== false).map(normalizar);
+        // RF-05 / RF-33: datos públicos de cada tienda (verificado, sede, calificación, ventas).
+        try {
+          const { data: tiendas } = await UMB.db.rpc("tiendas_publicas");
+          const mapa = new Map((tiendas || []).map((t) => [t.tienda_id, t]));
+          lista.forEach((p) => {
+            const t = mapa.get(p.tienda_id);
+            if (!t) return;
+            p.verificado = t.verificado;
+            p.sede = t.sede || "";
+            p.calificacion = t.calificacion != null ? Number(t.calificacion) : null;
+            p.total_calificaciones = Number(t.total_calificaciones || 0);
+            p.ventas = Number(t.ventas || 0);
+          });
+        } catch { /* sin datos de tiendas */ }
         cacheProductos = { productos: lista, origen: "supabase", error: null };
         return cacheProductos;
       } catch (e) {
@@ -304,9 +340,9 @@
         </a>
         <button class="btn-favorito" type="button" data-favorito="${UMB.esc(p.id)}" aria-pressed="${fav}" aria-label="Guardar ${UMB.esc(p.nombre)} en favoritos">${SVG_CORAZON}</button>
         <div class="producto-cuerpo">
-          <span class="producto-tienda">${UMB.esc(p.tienda)}</span>
+          <span class="producto-tienda">${p.tienda_id ? `<a href="vendedor.html?tienda=${encodeURIComponent(p.tienda_id)}">${UMB.esc(p.tienda)}</a>` : UMB.esc(p.tienda)}${p.verificado ? ' <span class="check-verificado" title="Vendedor verificado UMB" aria-label="Vendedor verificado UMB">✓</span>' : ""}</span>
           <h3><a href="${url}">${UMB.esc(p.nombre)}</a></h3>
-          ${p.resenas ? `<span class="producto-rating"><b>★</b> ${p.rating.toFixed(1)} · ${p.resenas} reseñas</span>` : '<span class="producto-rating">Nuevo</span>'}
+          ${p.total_calificaciones ? `<span class="producto-rating"><b>★</b> ${p.calificacion.toFixed(1)} · ${p.total_calificaciones} calificaci${p.total_calificaciones === 1 ? "ón" : "ones"} del vendedor</span>` : p.resenas ? `<span class="producto-rating"><b>★</b> ${p.rating.toFixed(1)} · ${p.resenas} reseñas</span>` : '<span class="producto-rating">Vendedor nuevo</span>'}
           <div class="producto-pie">
             <span class="precio">${UMB.dinero(p.precio)}</span>
             <button class="btn-agregar" type="button" data-agregar="${UMB.esc(p.id)}" ${agotado ? "disabled" : ""} aria-label="Agregar ${UMB.esc(p.nombre)} al carrito">${SVG_MAS}</button>
@@ -349,7 +385,37 @@
     entregado: "Entregado",
     cancelado: "Cancelado"
   };
-  UMB.PAGOS = { contraentrega: "Pago contra entrega", transferencia: "Transferencia bancaria", nequi: "Nequi / Daviplata" };
+  UMB.PAGOS = {
+    contraentrega: "Pago contra entrega",
+    transferencia: "Transferencia directa",
+    nequi: "Nequi / Daviplata (directo)",
+    wompi: "Pago en línea (Wompi)"
+  };
+  UMB.ESTADOS_PAGO = {
+    pendiente: ["⏳ Pago pendiente", "estado-pendiente"],
+    aprobado: ["✓ Pagado", "estado-entregado"],
+    rechazado: ["✕ Pago rechazado", "estado-cancelado"],
+    anulado: ["✕ Pago anulado", "estado-cancelado"],
+    error: ["⚠ Error en el pago", "estado-cancelado"]
+  };
+  UMB.estadoPagoHTML = (p) => {
+    if (p.metodo_pago !== "wompi" || !UMB.ESTADOS_PAGO[p.estado_pago]) return "";
+    const [txt, clase] = UMB.ESTADOS_PAGO[p.estado_pago];
+    return `<span class="estado ${clase}">${txt}</span>`;
+  };
+
+  /** Pide a la Edge Function el enlace de pago de Wompi y lleva al cliente allí. */
+  UMB.irAPagar = async (pedidoId) => {
+    const { data, error } = await UMB.db.functions.invoke(CFG.FUNCION_PAGOS || "pagos-wompi", {
+      body: { accion: "iniciar", pedido_id: pedidoId, redirect_url: new URL("pedidos.html", location.href).href }
+    });
+    if (error || !data?.url) {
+      let detalle = data?.error || "";
+      try { detalle = detalle || (await error?.context?.json())?.error || ""; } catch { /* nada */ }
+      throw new Error(detalle || "No se pudo abrir el pago en línea. Revisa que la función pagos-wompi esté desplegada en Supabase.");
+    }
+    location.href = data.url;
+  };
 
   UMB.estadoHTML = (estado) =>
     `<span class="estado estado-${UMB.esc(estado)}">${UMB.ESTADOS[estado] || UMB.esc(estado)}</span>`;
@@ -521,8 +587,136 @@
     if (boton) boton.innerHTML = `${UMB.avatarHTML(p)}<span class="usuario-nombre">${UMB.esc(p.nombre.split(" ")[0])}</span>`;
     const cab = $("#menu-correo");
     if (cab) cab.textContent = p.correo || "";
-    $$("[data-solo-admin]").forEach((el) => (el.hidden = p.rol !== "admin"));
+    $$("[data-solo-admin]").forEach((el) => (el.hidden = !["admin", "moderador"].includes(p.rol)));
+    UMB.favoritos.sincronizar(s);
+    iniciarNotificaciones();
   }
+
+  /* ======================= Notificaciones (campanita) ======================= */
+
+  let notifIntervalo = null;
+  let notifLista = [];
+  async function cargarNotificaciones() {
+    if (!UMB.db) return;
+    const { data, error } = await UMB.db.from("notificaciones")
+      .select("id, tipo, titulo, cuerpo, enlace, leida, creado_en")
+      .order("creado_en", { ascending: false }).limit(20);
+    if (error) return;
+    notifLista = data || [];
+    const sinLeer = notifLista.filter((n) => !n.leida).length;
+    $$("[data-contador-notif]").forEach((el) => { el.textContent = sinLeer ? (sinLeer > 9 ? "9+" : String(sinLeer)) : ""; el.dataset.valor = sinLeer; });
+    const btn = $("#btn-notificaciones");
+    if (btn) btn.setAttribute("aria-label", sinLeer ? `Notificaciones: ${sinLeer} sin leer` : "Notificaciones");
+  }
+
+  function pintarNotificaciones() {
+    const panel = $("#panel-notificaciones-lista");
+    if (!panel) return;
+    panel.innerHTML = notifLista.length
+      ? notifLista.map((n) => `
+          <a class="notif${n.leida ? "" : " nueva"}" href="${UMB.esc(n.enlace || "#")}">
+            <strong>${UMB.esc(n.titulo)}</strong>
+            ${n.cuerpo ? `<span>${UMB.esc(n.cuerpo)}</span>` : ""}
+            <time>${UMB.fecha(n.creado_en, true)}</time>
+          </a>`).join("")
+      : '<p class="muted" style="padding:1rem;margin:0">No tienes notificaciones.</p>';
+  }
+
+  function iniciarNotificaciones() {
+    if (notifIntervalo) return;
+    cargarNotificaciones();
+    notifIntervalo = setInterval(() => { if (!document.hidden) cargarNotificaciones(); }, 60000);
+    const btn = $("#btn-notificaciones");
+    const panel = $("#panel-notificaciones");
+    btn?.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      panel.hidden = !panel.hidden;
+      btn.setAttribute("aria-expanded", String(!panel.hidden));
+      if (!panel.hidden) {
+        pintarNotificaciones();
+        if (notifLista.some((n) => !n.leida)) {
+          await UMB.db.rpc("marcar_notificaciones_leidas");
+          notifLista.forEach((n) => (n.leida = true));
+          $$("[data-contador-notif]").forEach((el) => { el.textContent = ""; el.dataset.valor = 0; });
+        }
+      }
+    });
+    document.addEventListener("click", (e) => {
+      if (panel && !panel.hidden && !panel.contains(e.target)) { panel.hidden = true; btn?.setAttribute("aria-expanded", "false"); }
+    });
+  }
+  UMB.recargarNotificaciones = cargarNotificaciones;
+
+  /** Reduce una imagen a máx. `max` px y la devuelve como JPEG. */
+  UMB.reducirImagen = async (file, max = 1400) => {
+    try {
+      const bitmap = await createImageBitmap(file);
+      const escala = Math.min(1, max / Math.max(bitmap.width, bitmap.height));
+      const c = document.createElement("canvas");
+      c.width = Math.max(1, Math.round(bitmap.width * escala));
+      c.height = Math.max(1, Math.round(bitmap.height * escala));
+      c.getContext("2d").drawImage(bitmap, 0, 0, c.width, c.height);
+      const blob = await new Promise((r) => c.toBlob(r, "image/jpeg", 0.86));
+      return blob || file;   // algunos navegadores devuelven null con fotos muy grandes
+    } catch {
+      return file;
+    }
+  };
+
+  /**
+   * RF-07: huella perceptual (dHash de 64 bits). Dos fotos casi iguales
+   * (aunque cambie el tamaño o la compresión) tienen huellas parecidas.
+   */
+  UMB.huellaImagen = async (blob) => {
+    try {
+      const bitmap = await createImageBitmap(blob);
+      const c = document.createElement("canvas");
+      c.width = 9; c.height = 8;
+      const ctx = c.getContext("2d", { willReadFrequently: true });
+      ctx.drawImage(bitmap, 0, 0, 9, 8);
+      const px = ctx.getImageData(0, 0, 9, 8).data;
+      const gris = (x, y) => { const i = (y * 9 + x) * 4; return px[i] * 0.299 + px[i + 1] * 0.587 + px[i + 2] * 0.114; };
+      let bits = "";
+      for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) bits += gris(x, y) > gris(x + 1, y) ? "1" : "0";
+      return bits.match(/.{4}/g).map((b) => parseInt(b, 2).toString(16)).join("");
+    } catch {
+      return null;
+    }
+  };
+
+  let categoriasPromesa = null;
+  /** Categorías activas desde la base de datos (RF-38), con respaldo local. */
+  UMB.cargarCategorias = () => {
+    if (!categoriasPromesa) {
+      categoriasPromesa = (UMB.db
+        ? UMB.db.from("categorias").select("nombre, icono, orden").eq("activa", true).order("orden")
+        : Promise.resolve({ data: null })
+      ).then(({ data }) => (data && data.length ? data : UMB.categorias));
+    }
+    return categoriasPromesa;
+  };
+
+  /** Llena un <select> con las sedes activas. */
+  UMB.cargarSedes = async (select, actual) => {
+    if (!select || !UMB.db) return;
+    const { data } = await UMB.db.from("sedes").select("id, nombre").order("nombre");
+    select.innerHTML = '<option value="">Selecciona…</option>' +
+      (data || []).map((s) => `<option value="${UMB.esc(s.id)}" ${s.id === actual ? "selected" : ""}>${UMB.esc(s.nombre)}</option>`).join("");
+  };
+
+  /* ======================= Estado de la cuenta ======================= */
+
+  UMB.ESTADOS_CUENTA = {
+    pendiente: ["Pendiente de verificación", "estado-pendiente"],
+    verificado: ["✓ Verificado UMB", "estado-entregado"],
+    suspendido: ["Suspendido", "estado-cancelado"],
+    egresado: ["Egresado / Inactivo", "estado-cancelado"]
+  };
+  UMB.estadoCuentaHTML = (estado) => {
+    const [txt, clase] = UMB.ESTADOS_CUENTA[estado] || UMB.ESTADOS_CUENTA.pendiente;
+    return `<span class="estado ${clase}">${txt}</span>`;
+  };
+  UMB.insigniaVerificado = '<span class="insignia-verificado" title="Vendedor verificado UMB">✓ Vendedor verificado UMB</span>';
 
   function activarCabecera() {
     // Menú móvil
@@ -627,7 +821,11 @@
     aviso.innerHTML = '<div class="vacio-icono">⚠️</div><h2>No se pudo cargar esta sección</h2>' +
       '<p>Recarga la página con <strong>Ctrl + Shift + R</strong>. Si sigue igual, revisa que todos los archivos del sitio estén actualizados.</p>' +
       '<p class="muted" style="font-size:.8rem"></p><button class="btn btn-primario" type="button">Reintentar</button>';
-    aviso.querySelector(".muted").textContent = "Detalle: " + (error?.message || error || "desconocido");
+    const detalle = String(error?.message || error || "desconocido");
+    aviso.querySelector(".muted").textContent = "Detalle: " + detalle +
+      (/addEventListener|of null|of undefined/.test(detalle)
+        ? ` · Parece que ${location.pathname.split("/").pop() || "index.html"} quedó con una versión anterior: súbelo de nuevo junto con la carpeta marketplace.`
+        : "");
     aviso.querySelector("button").addEventListener("click", () => location.reload());
     pendientes[0].replaceWith(aviso);
     pendientes.slice(1).forEach((el) => el.remove());

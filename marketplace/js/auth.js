@@ -56,6 +56,75 @@
     $$('input[type="email"][name="correo"]').forEach((i) => (i.placeholder = "tu.nombre@" + lista[0]));
   });
 
+  /* ======================= Código de verificación por correo (RF-01) ======================= */
+
+  /**
+   * Muestra el formulario del código de 6 dígitos que Supabase envía al correo.
+   * alVerificar(sesion) se llama cuando el código es correcto.
+   */
+  function pedirCodigo(correo, alVerificar) {
+    const form = $("#form-codigo");
+    if (!form) return;
+    $$("[data-ocultar-al-pedir-codigo]").forEach((el) => (el.hidden = true));
+    form.hidden = false;
+    $("#codigo-correo").textContent = correo;
+    form.codigo.value = "";
+    form.codigo.focus();
+    const msg = $("#mensaje-codigo");
+
+    form.onsubmit = async (e) => {
+      e.preventDefault();
+      const token = form.codigo.value.replace(/\D/g, "");
+      if (token.length < 6) return UMB.mensaje(msg, "Escribe los 6 dígitos del código.", "error");
+      const btn = form.querySelector('[type="submit"]');
+      UMB.cargando(btn, true);
+      let { data, error } = await UMB.db.auth.verifyOtp({ email: correo, token, type: "email" });
+      if (error) ({ data, error } = await UMB.db.auth.verifyOtp({ email: correo, token, type: "signup" }));
+      UMB.cargando(btn, false);
+      if (error || !data?.session) {
+        return UMB.mensaje(msg, /expired|invalid/i.test(error?.message || "") ? "El código no es válido o ya venció. Pide uno nuevo." : UMB.traducirError(error), "error");
+      }
+      UMB.mensaje(msg, "¡Correo verificado!", "exito");
+      alVerificar(data.session);
+    };
+
+    $("#reenviar-codigo").onclick = async (e) => {
+      const b = e.currentTarget;
+      b.disabled = true;
+      const { error } = await UMB.db.auth.resend({ type: "signup", email: correo, options: { emailRedirectTo: urlDe("login.html?confirmado=1") } });
+      UMB.mensaje(msg, error ? UMB.traducirError(error) : "Te enviamos un código nuevo.", error ? "error" : "exito");
+      setTimeout(() => (b.disabled = false), 60000);
+    };
+  }
+
+  /** RNF-02: si el usuario tiene verificación en dos pasos, pedir el código de la app. */
+  async function necesitaSegundoPaso() {
+    const { data } = await UMB.db.auth.mfa.getAuthenticatorAssuranceLevel();
+    return data && data.nextLevel === "aal2" && data.currentLevel !== "aal2";
+  }
+
+  function pedirSegundoPaso(alVerificar) {
+    const form = $("#form-mfa");
+    $$("[data-ocultar-al-pedir-codigo]").forEach((el) => (el.hidden = true));
+    $("#form-codigo") && ($("#form-codigo").hidden = true);
+    form.hidden = false;
+    form.codigo.focus();
+    const msg = $("#mensaje-mfa");
+    form.onsubmit = async (e) => {
+      e.preventDefault();
+      const btn = form.querySelector('[type="submit"]');
+      UMB.cargando(btn, true);
+      const { data: f } = await UMB.db.auth.mfa.listFactors();
+      const factor = f?.totp?.[0];
+      if (!factor) { UMB.cargando(btn, false); return alVerificar(); }
+      const { error } = await UMB.db.auth.mfa.challengeAndVerify({ factorId: factor.id, code: form.codigo.value.replace(/\D/g, "") });
+      UMB.cargando(btn, false);
+      if (error) return UMB.mensaje(msg, "Código incorrecto. Revisa la app de autenticación e inténtalo de nuevo.", "error");
+      alVerificar();
+    };
+    $("#mfa-salir").onclick = UMB.cerrarSesion;
+  }
+
   /* ======================= Microsoft (y otros proveedores) ======================= */
 
   // Opciones por proveedor. Microsoft (Azure) exige pedir el permiso "email".
@@ -88,8 +157,21 @@
   if (formLogin) {
     const msg = $("#mensaje");
 
-    // Si ya hay sesión, no tiene sentido mostrar el formulario.
-    UMB.sesion().then((s) => { if (s) location.replace(destino()); });
+    const entrar = async (sesion) => {
+      if (!(await UMB.verificarIngreso(sesion))) return;
+      if (await necesitaSegundoPaso()) return pedirSegundoPaso(() => entrar(sesion));
+      UMB.marcarAcceso("email");
+      await UMB.registrarAccesoPendiente(sesion);
+      UMB.mensaje(msg, "¡Bienvenido! Entrando…", "exito");
+      location.replace(destino());
+    };
+
+    // Si ya hay sesión: pedir el segundo paso si falta; si no, continuar.
+    UMB.sesion().then(async (s) => {
+      if (!s) return;
+      if (await necesitaSegundoPaso()) pedirSegundoPaso(() => location.replace(destino()));
+      else location.replace(destino());
+    });
 
     if (UMB.param("confirmado")) UMB.mensaje(msg, "¡Correo confirmado! Ya puedes iniciar sesión.", "exito");
     if (UMB.param("clave") === "actualizada") UMB.mensaje(msg, "Tu contraseña se actualizó. Inicia sesión con la nueva.", "exito");
@@ -104,7 +186,7 @@
       const btn = formLogin.querySelector('[type="submit"]');
       const correo = formLogin.correo.value.trim().toLowerCase();
       const clave = formLogin.clave.value;
-      $("#reenviar-confirmacion").hidden = true;
+      if ($("#reenviar-confirmacion")) $("#reenviar-confirmacion").hidden = true;
       if (!UMB.db) return UMB.mensaje(msg, "No hay conexión con el servidor.", "error");
 
       UMB.cargando(btn, true);
@@ -112,15 +194,17 @@
       const { data, error } = await UMB.db.auth.signInWithPassword({ email: correo, password: clave });
       if (error) {
         UMB.cargando(btn, false);
+        if (/not confirmed/i.test(error.message)) {
+          // Falta confirmar el correo: enviar un código nuevo y pedirlo aquí mismo.
+          await UMB.db.auth.resend({ type: "signup", email: correo, options: { emailRedirectTo: urlDe("login.html?confirmado=1") } });
+          pedirCodigo(correo, entrar);
+          UMB.mensaje("#mensaje-codigo", "Aún no habías confirmado tu correo. Te enviamos un código.", "info");
+          return;
+        }
         UMB.mensaje(msg, UMB.traducirError(error), "error");
-        if (/not confirmed/i.test(error.message)) $("#reenviar-confirmacion").hidden = false;
         return;
       }
-      if (!(await UMB.verificarIngreso(data.session))) return;
-      UMB.marcarAcceso("email");
-      await UMB.registrarAccesoPendiente(data.session);
-      UMB.mensaje(msg, "¡Bienvenido! Entrando…", "exito");
-      location.replace(destino());
+      await entrar(data.session);
     });
 
     $("#btn-olvide")?.addEventListener("click", async () => {
@@ -164,7 +248,8 @@
       if (nombre.length < 3) return UMB.mensaje(msg, "Escribe tu nombre completo.", "error");
       if (clave.length < 8) return UMB.mensaje(msg, "La contraseña debe tener al menos 8 caracteres.", "error");
       if (clave !== clave2) { formReg.clave2.focus(); return UMB.mensaje(msg, "Las contraseñas no coinciden.", "error"); }
-      if (!formReg.acepta.checked) return UMB.mensaje(msg, "Debes aceptar el tratamiento de datos para crear la cuenta.", "error");
+      if (!formReg.terminos.checked) return UMB.mensaje(msg, "Debes aceptar los términos y condiciones para crear la cuenta.", "error");
+      if (!formReg.acepta.checked) return UMB.mensaje(msg, "Debes autorizar el tratamiento de tus datos para crear la cuenta.", "error");
       if (!(await UMB.correoPermitido(correo))) {
         formReg.correo.focus();
         const lista = await UMB.dominios();
@@ -179,7 +264,7 @@
         password: clave,
         options: {
           // Estos datos los guarda el disparador de schema.sql en la tabla "perfiles".
-          data: { nombre, telefono, rol, acepta_datos: "true" },
+          data: { nombre, telefono, rol, acepta_datos: "true", acepta_terminos: "true" },
           emailRedirectTo: urlDe("login.html?confirmado=1")
         }
       });
@@ -200,9 +285,12 @@
         return;
       }
 
-      formReg.hidden = true;
-      $("#registro-listo").hidden = false;
-      $("#registro-correo").textContent = correo;
+      // RF-01: confirmar con el código de 6 dígitos enviado al correo.
+      pedirCodigo(correo, async (sesion) => {
+        UMB.marcarAcceso("email");
+        await UMB.registrarAccesoPendiente(sesion);
+        location.replace(rol === "vendedor" ? "verificacion.html" : destino());
+      });
     });
   }
 
