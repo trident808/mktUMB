@@ -329,7 +329,7 @@
     const { data, error } = await UMB.db.from("sedes").select("*").order("nombre");
     if (error) throw error;
     $("#lista-sedes").innerHTML = data.map((s) => `
-      <li><span><strong>${esc(s.nombre)}</strong> <span class="muted">${esc(s.ciudad || "")}</span>${s.activa ? "" : ' <span class="estado estado-cancelado">Inactiva</span>'}</span>
+      <li><span><strong>${esc(s.nombre)}</strong> <span class="muted">${esc([s.ciudad, s.direccion].filter(Boolean).join(" · "))}</span>${s.activa ? "" : ' <span class="estado estado-cancelado">Inactiva</span>'}</span>
         <button class="btn btn-linea btn-sm" type="button" data-sede-activa="${esc(s.id)}" data-valor="${!s.activa}">${s.activa ? "Desactivar" : "Activar"}</button></li>`).join("")
       || '<li class="muted">No hay sedes.</li>';
     if (UMB.admin.cargarConfigExtra) await UMB.admin.cargarConfigExtra();
@@ -337,7 +337,7 @@
   $("#form-sede")?.addEventListener("submit", async (e) => {
     e.preventDefault();
     const f = e.currentTarget;
-    const { error } = await UMB.db.from("sedes").insert({ nombre: f.nombre.value.trim(), ciudad: f.ciudad.value.trim() || null });
+    const { error } = await UMB.db.from("sedes").insert({ nombre: f.nombre.value.trim(), ciudad: f.ciudad.value.trim() || null, direccion: f.direccion.value.trim() || null });
     if (error) return UMB.toast(UMB.traducirError(error), { error: true });
     f.reset();
     UMB.toast("Sede agregada.");

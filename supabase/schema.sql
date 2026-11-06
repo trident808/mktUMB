@@ -102,10 +102,27 @@ create table if not exists public.sedes (
     creado_en timestamptz not null default now()
 );
 
-insert into public.sedes (nombre, ciudad)
-select v.nombre, v.ciudad
-from (values ('Bogotá', 'Bogotá'), ('Cajicá', 'Cajicá'), ('Bucaramanga', 'Bucaramanga')) as v(nombre, ciudad)
-where not exists (select 1 from public.sedes);
+alter table public.sedes add column if not exists direccion text;
+
+-- Sedes de la UMB (umb.edu.co). Se agregan las que falten, sin tocar las que
+-- el administrador ya creó o desactivó.
+insert into public.sedes (nombre, ciudad, direccion)
+select v.nombre, v.ciudad, v.direccion
+from (values
+    ('Bogotá', 'Bogotá', 'Av. Circunvalar # 60-00 (sede principal)'),
+    ('Cajicá', 'Cajicá', null),
+    ('Bucaramanga', 'Bucaramanga', 'Calle 33 # 27-12'),
+    ('Bucaramanga – Laboratorios', 'Bucaramanga', 'Calle 33 # 27-62'),
+    ('UMB Virtual', null, 'Estudiantes en línea (umbvirtual.edu.co)')
+) as v(nombre, ciudad, direccion)
+where not exists (select 1 from public.sedes s where lower(s.nombre) = lower(v.nombre));
+
+update public.sedes s set direccion = v.direccion
+from (values
+    ('Bogotá', 'Av. Circunvalar # 60-00 (sede principal)'),
+    ('Bucaramanga', 'Calle 33 # 27-12')
+) as v(nombre, direccion)
+where lower(s.nombre) = lower(v.nombre) and s.direccion is null;
 
 
 -- =====================================================================
