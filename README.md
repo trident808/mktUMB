@@ -184,7 +184,7 @@ Abre la carpeta en VS Code y usa la extensión **Live Server**. Así la abres co
 
 | Requerimiento | Cómo se cumple |
 |---|---|
-| RF-06 | Al tocar **Publicar un producto**, el sistema crea un borrador con un **código único** (por ejemplo `UMB-7K3QX`). El vendedor sube **mínimo 3 fotos** y marca la que muestra el código escrito en papel. |
+| RF-06 | Al tocar **Publicar un producto**, el sistema crea un borrador con un **código único** (por ejemplo `UMB-7K3QX`). El vendedor sube **la foto del producto junto al papel con el código** (paso 1) y **mínimo 2 fotos para el catálogo** (paso 2). La foto del código se guarda en el almacén **privado**: solo la ven el vendedor y los moderadores, nunca los compradores. |
 | RF-07 | Cada foto lleva una **huella perceptual**. Si se parece a una foto de otra publicación, o si hay fotos repetidas dentro de la misma, el moderador ve una alerta. Opcional: búsqueda en internet con Google Cloud Vision (función `revisar-imagenes`). |
 | RF-08 | Toda publicación nace como **borrador** y pasa a **En revisión** hasta que un moderador la aprueba. Si el vendedor cambia el nombre, la descripción, la categoría o las fotos de una publicación aprobada, vuelve a revisión. El precio y la cantidad se pueden cambiar sin perderla. |
 | RF-09 | Campos obligatorios: categoría, estado (nuevo/usado), precio, cantidad, descripción (mínimo 20 caracteres) y modalidades de entrega (en la U o a domicilio, más el tamaño del paquete si es a domicilio). |

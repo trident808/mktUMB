@@ -135,7 +135,14 @@
     if (error) throw error;
     if (filtroPub === "pendiente") $("#n-publicaciones").textContent = data.length ? `(${data.length})` : "";
     if (!data.length) { cont.innerHTML = '<div class="vacio"><div class="vacio-icono">✅</div><p>No hay publicaciones en esta lista.</p></div>'; return; }
-    const { data: fotos } = await UMB.db.from("producto_fotos").select("producto_id, url, con_codigo, orden").in("producto_id", data.map((p) => p.id)).order("orden");
+    const { data: fotos } = await UMB.db.from("producto_fotos").select("producto_id, ruta, url, con_codigo, orden").in("producto_id", data.map((p) => p.id)).order("orden");
+    // La foto del código está en el almacén privado: enlace temporal de 10 minutos.
+    const privadas = (fotos || []).filter((f) => f.con_codigo && !f.url);
+    if (privadas.length) {
+      const { data: firmadas } = await UMB.db.storage.from("verificaciones").createSignedUrls(privadas.map((f) => f.ruta), 600);
+      privadas.forEach((f, i) => (f.url = firmadas?.[i]?.signedUrl || ""));
+    }
+    (fotos || []).sort((a, b) => Number(b.con_codigo) - Number(a.con_codigo));   // primero la del código
     cont.innerHTML = data.map((p) => {
       const fs = (fotos || []).filter((f) => f.producto_id === p.id);
       const alertas = Array.isArray(p.alertas) ? p.alertas : [];

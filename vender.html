@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="marketplace/css/styles.css?v=38aaf79a">
+  <link rel="stylesheet" href="marketplace/css/styles.css?v=3d14ffb5">
   <script>try{var t=JSON.parse(localStorage.getItem("umb_tema"));if(t==="claro"||t==="oscuro")document.documentElement.dataset.tema=t}catch(e){}</script>
 </head>
 <body data-pagina="vender">
@@ -134,14 +134,20 @@
                 <strong id="codigo-publicacion">UMB-·····</strong>
                 <p>Escríbelo a mano en un papel y toma una foto del producto <strong>junto al papel</strong>. Así comprobamos que de verdad lo tienes.</p>
               </div>
+              <div class="foto-codigo-caja">
+                <div class="fotos-editor" id="foto-codigo-editor"></div>
+                <label class="subir-imagen" for="pr-foto-codigo" id="subir-foto-codigo"><span style="font-size:1.6rem">📝</span><span>Subir la foto con el código</span></label>
+                <input id="pr-foto-codigo" type="file" accept="image/*" class="sr-only">
+                <p class="nota">🔒 Esta foto es privada: solo la ven los moderadores para verificar. Los compradores no la ven.</p>
+              </div>
             </div>
 
             <div class="paso-editor">
-              <h3><span class="num">2</span> Fotos reales del producto <span class="muted" id="contador-fotos">(0 de mínimo 3)</span></h3>
+              <h3><span class="num">2</span> Fotos del producto para el catálogo <span class="muted" id="contador-fotos">(0 de mínimo 2)</span></h3>
               <div class="fotos-editor" id="fotos-editor"></div>
               <label class="subir-imagen" for="pr-fotos" style="margin-top:.75rem"><span style="font-size:1.6rem">📷</span><span>Toca para agregar fotos (puedes elegir varias)</span></label>
               <input id="pr-fotos" type="file" accept="image/*" multiple class="sr-only">
-              <p class="nota">Marca con «Tiene el código» la foto donde se ve el papel. No uses fotos de internet: el sistema detecta fotos repetidas.</p>
+              <p class="nota">Estas son las fotos que verán los compradores; la primera es la portada. No uses fotos de internet: el sistema detecta fotos repetidas.</p>
             </div>
 
             <form class="paso-editor formulario" id="form-producto">
@@ -241,8 +247,8 @@
   <div class="toasts" id="toasts" aria-live="polite"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-  <script src="marketplace/js/config.js?v=38aaf79a"></script>
-  <script src="marketplace/js/app.js?v=38aaf79a"></script>
-  <script src="marketplace/js/vender.js?v=38aaf79a"></script>
+  <script src="marketplace/js/config.js?v=3d14ffb5"></script>
+  <script src="marketplace/js/app.js?v=3d14ffb5"></script>
+  <script src="marketplace/js/vender.js?v=3d14ffb5"></script>
 </body>
 </html>

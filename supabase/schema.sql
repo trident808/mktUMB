@@ -1748,9 +1748,11 @@ begin
     drop policy if exists "productos_imagenes_editar" on storage.objects;
     drop policy if exists "productos_imagenes_borrar" on storage.objects;
 
+    -- Las fotos se ven por su enlace público; listar el almacén solo lo puede
+    -- hacer el dueño de la carpeta (así nadie recorre todas las fotos).
     create policy "productos_imagenes_ver" on storage.objects
-    for select to anon, authenticated
-    using (bucket_id = 'productos');
+    for select to authenticated
+    using (bucket_id = 'productos' and (storage.foldername(name))[1] = auth.uid()::text);
 
     create policy "productos_imagenes_subir" on storage.objects
     for insert to authenticated
@@ -2138,6 +2140,13 @@ begin
 
     drop policy if exists "verificaciones_subir" on storage.objects;
     drop policy if exists "verificaciones_ver" on storage.objects;
+    drop policy if exists "verificaciones_borrar" on storage.objects;
+
+    -- El vendedor puede reemplazar la foto del código de sus publicaciones.
+    create policy "verificaciones_borrar" on storage.objects
+    for delete to authenticated
+    using (bucket_id = 'verificaciones' and (storage.foldername(name))[1] = auth.uid()::text
+           and (storage.foldername(name))[2] = 'codigos');
 
     create policy "verificaciones_subir" on storage.objects
     for insert to authenticated
@@ -2252,6 +2261,10 @@ create table if not exists public.producto_fotos (
 );
 create index if not exists idx_producto_fotos_producto on public.producto_fotos (producto_id, orden);
 create index if not exists idx_producto_fotos_huella on public.producto_fotos (huella);
+-- Solo una foto con código por publicación (si había varias marcadas, se deja la última).
+update public.producto_fotos f set con_codigo = false
+where con_codigo and exists (select 1 from public.producto_fotos o where o.producto_id = f.producto_id and o.con_codigo and o.id > f.id);
+create unique index if not exists idx_producto_fotos_un_codigo on public.producto_fotos (producto_id) where con_codigo;
 
 -- Distancia de Hamming entre dos huellas de 64 bits (0 = idénticas).
 create or replace function public.distancia_huella(a text, b text)
@@ -2346,8 +2359,11 @@ begin
     -- RF-06: mínimo de fotos y una con el código escrito en papel
     select count(*), count(*) filter (where con_codigo) into v_fotos, v_con_codigo
     from public.producto_fotos where producto_id = p_producto;
-    if v_fotos < v_min then raise exception 'Sube al menos % fotos reales del producto', v_min; end if;
-    if v_con_codigo < 1 then raise exception 'Marca cuál foto muestra el código % escrito en un papel', v.codigo_verificacion; end if;
+    -- min_fotos_publicacion cuenta la foto del código: con 3 son 2 del producto + 1 del código.
+    if v_con_codigo < 1 then raise exception 'Sube la foto con el código % escrito en un papel', v.codigo_verificacion; end if;
+    if v_fotos - v_con_codigo < greatest(v_min - 1, 1) then
+        raise exception 'Sube al menos % fotos del producto para el catálogo', greatest(v_min - 1, 1);
+    end if;
 
     -- RF-07: fotos repetidas en otras publicaciones o dentro de la misma
     select coalesce(jsonb_agg(distinct jsonb_build_object(
@@ -2356,7 +2372,8 @@ begin
     into v_alertas
     from public.producto_fotos f
     join public.producto_fotos o on o.producto_id <> f.producto_id
-    where f.producto_id = p_producto and public.distancia_huella(f.huella, o.huella) <= 6;
+    where f.producto_id = p_producto and not f.con_codigo and not o.con_codigo
+      and public.distancia_huella(f.huella, o.huella) <= 6;
 
     if exists (
         select 1 from public.producto_fotos a join public.producto_fotos b
@@ -2376,7 +2393,7 @@ begin
         alertas = v_alertas,
         activo = true,
         enviado_revision_en = now(),
-        imagen = (select url from public.producto_fotos where producto_id = p_producto order by con_codigo, orden, id limit 1)
+        imagen = (select url from public.producto_fotos where producto_id = p_producto and not con_codigo and url <> '' order by orden, id limit 1)
     where id = p_producto;
 
     if array_length(v_motivos, 1) > 0 then
@@ -2444,7 +2461,8 @@ as $$
     update public.productos p
     set imagen = coalesce(
         (select f.url from public.producto_fotos f where f.producto_id = p_producto
-         order by f.con_codigo, f.orden, f.id limit 1),
+           and not f.con_codigo and f.url <> ''
+         order by f.orden, f.id limit 1),
         case when p.imagen like 'icono:%' then p.imagen end)
     where p.id = p_producto;
 $$;
@@ -2484,6 +2502,11 @@ select p.id,
 from public.productos p
 where p.imagen ~ '^https?://'
   and not exists (select 1 from public.producto_fotos f where f.producto_id = p.id);
+
+-- La portada nunca es la foto del código.
+select public.sincronizar_imagen_producto(p.id)
+from public.productos p
+where exists (select 1 from public.producto_fotos f where f.producto_id = p.id and f.con_codigo and f.url = p.imagen);
 
 -- ---------- Reportes de publicaciones (RF-11) ----------
 create table if not exists public.reportes (
@@ -2616,14 +2639,16 @@ using (public.es_moderador()) with check (public.es_admin());
 -- Fotos: públicas las de publicaciones visibles; el dueño gestiona las suyas.
 grant select on public.producto_fotos to anon, authenticated;
 grant insert (producto_id, ruta, url, orden, huella, con_codigo) on public.producto_fotos to authenticated;
-grant update (orden, con_codigo) on public.producto_fotos to authenticated;
+revoke update on public.producto_fotos from authenticated;
+grant update (orden) on public.producto_fotos to authenticated;
 grant delete on public.producto_fotos to authenticated;
 drop policy if exists "fotos_ver" on public.producto_fotos;
 drop policy if exists "fotos_dueno" on public.producto_fotos;
 drop policy if exists "fotos_dueno_editar" on public.producto_fotos;
 drop policy if exists "fotos_dueno_borrar" on public.producto_fotos;
 create policy "fotos_ver" on public.producto_fotos for select to anon, authenticated
-using (exists (select 1 from public.productos p where p.id = producto_id));   -- hereda la visibilidad del producto
+using (exists (select 1 from public.productos p where p.id = producto_id)   -- hereda la visibilidad del producto
+       and (not con_codigo or public.es_dueno_producto(producto_id) or public.es_moderador()));   -- la foto del código es privada
 create policy "fotos_dueno" on public.producto_fotos for insert to authenticated
 with check (public.es_dueno_producto(producto_id) and ruta like auth.uid()::text || '/%');
 create policy "fotos_dueno_editar" on public.producto_fotos for update to authenticated

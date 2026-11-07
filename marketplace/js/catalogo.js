@@ -176,8 +176,9 @@
     // RF-06: galería con todas las fotos reales de la publicación
     let fotos = [];
     if (UMB.db && !String(p.id).startsWith("demo")) {
-      const { data } = await UMB.db.from("producto_fotos").select("url, con_codigo, orden").eq("producto_id", p.id).order("orden");
-      fotos = (data || []).filter((f) => !f.con_codigo).concat((data || []).filter((f) => f.con_codigo));
+      // La foto con el código es privada (solo para moderación): nunca se muestra en la ficha.
+      const { data } = await UMB.db.from("producto_fotos").select("url, orden").eq("producto_id", p.id).eq("con_codigo", false).order("orden");
+      fotos = (data || []).filter((f) => f.url);
     }
     const galeria = fotos.length > 1
       ? `<div class="miniaturas" role="list">${fotos.map((f, i) => `<button type="button" role="listitem" data-foto="${esc(f.url)}" aria-label="Ver foto ${i + 1}" ${i === 0 ? 'aria-current="true"' : ""}><img src="${esc(f.url)}" alt="" loading="lazy"></button>`).join("")}</div>`

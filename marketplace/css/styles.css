@@ -880,3 +880,7 @@ td.envolver { white-space: normal; min-width: 180px; }
 #lista-parametros { display: grid; gap: .5rem; margin-bottom: 1rem; }
 .foto-editor.foto-rota img { visibility: hidden; }
 .foto-editor.foto-rota::before { content: "⚠ No se puede mostrar"; position: absolute; inset: 0 0 auto 0; aspect-ratio: 1; display: grid; place-items: center; font-size: .8rem; color: var(--error, #b42318); text-align: center; padding: .5rem; }
+.foto-codigo-caja { margin-top: .9rem; display: grid; gap: .6rem; }
+.foto-codigo-caja .fotos-editor:empty { display: none; }
+.foto-editor { position: relative; }
+.etiqueta-portada { position: absolute; left: .35rem; top: .35rem; background: rgba(0,0,0,.65); color: #fff; font-size: .72rem; padding: .1rem .45rem; border-radius: 999px; }

@@ -92,9 +92,9 @@
 
     const form = $("#form-producto");
     const editor = $("#editor-producto");
-    const MIN_FOTOS = 3;
+    const MIN_FOTOS = 2;   // fotos del producto (la del código va aparte y es privada)
     // vender.html viejo con vender.js nuevo: avisar en vez de fallar.
-    if (!form || !editor || !form.entrega_domicilio || !$("#pr-fotos")) {
+    if (!form || !editor || !form.entrega_domicilio || !$("#pr-fotos") || !$("#pr-foto-codigo")) {
       ($("#mis-productos") || $("#panel")).innerHTML = `<div class="vacio"><div class="vacio-icono">⚠️</div>
         <h2>Esta página está desactualizada</h2>
         <p>El archivo <strong>vender.html</strong> del sitio es de una versión anterior. Súbelo de nuevo desde el zip (está en la carpeta principal, junto a index.html) y recarga con <strong>Ctrl + Shift + R</strong>.</p></div>`;
@@ -109,6 +109,7 @@
     let misProductos = [];
     let actual = null;      // producto que se está editando
     let fotos = [];         // fotos del producto actual
+    let codigo = null;      // foto privada con el código de verificación
 
     // Categorías desde la base de datos (RF-38)
     const cats = await UMB.cargarCategorias();
@@ -118,29 +119,61 @@
 
     /* ----- Editor ----- */
 
-    function pintarFotos() {
-      $("#contador-fotos").textContent = `(${fotos.length} de mínimo ${MIN_FOTOS})`;
-      $("#contador-fotos").classList.toggle("ok", fotos.length >= MIN_FOTOS);
-      $("#fotos-editor").innerHTML = fotos.map((f) => `
-        <figure class="foto-editor${f.con_codigo ? " con-codigo" : ""}">
-          <img src="${esc(f.vista || f.url)}" alt="Foto del producto" data-foto-url="${esc(f.url)}">
-          <label class="check-linea"><input type="radio" name="foto-codigo" value="${f.id}" ${f.con_codigo ? "checked" : ""}> Tiene el código</label>
-          <button class="btn-quitar-foto" type="button" data-quitar-foto="${f.id}" aria-label="Quitar foto">✕</button>
-        </figure>`).join("");
-      // Si la foto no se puede mostrar, decirlo en vez de dejar el recuadro vacío.
-      $("#fotos-editor").querySelectorAll("img").forEach((img) => {
+    function avisarFotoRota(cont) {
+      cont.querySelectorAll("img").forEach((img) => {
         img.addEventListener("error", () => {
           img.closest("figure").classList.add("foto-rota");
           UMB.mensaje("#mensaje-producto",
-            "Una foto se subió pero no se puede ver. En Supabase → Storage, el bucket «productos» debe estar como Public (vuelve a ejecutar schema.sql).", "error");
+            "Una foto se subió pero no se puede ver. Vuelve a ejecutar schema.sql en Supabase para revisar los almacenes de fotos.", "error");
         }, { once: true });
       });
+    }
+
+    function pintarFotos() {
+      $("#contador-fotos").textContent = `(${fotos.length} de mínimo ${MIN_FOTOS})`;
+      $("#contador-fotos").classList.toggle("ok", fotos.length >= MIN_FOTOS);
+      $("#fotos-editor").innerHTML = fotos.map((f, i) => `
+        <figure class="foto-editor">
+          <img src="${esc(f.vista || f.url)}" alt="Foto ${i + 1} del producto">
+          ${i === 0 ? '<span class="etiqueta-portada">Portada</span>' : ""}
+          <button class="btn-quitar-foto" type="button" data-quitar-foto="${f.id}" aria-label="Quitar foto">✕</button>
+        </figure>`).join("");
+      avisarFotoRota($("#fotos-editor"));
+      $("#foto-codigo-editor").innerHTML = codigo ? `
+        <figure class="foto-editor con-codigo">
+          <img src="${esc(codigo.vista || "")}" alt="Foto con el código">
+          <span class="etiqueta-portada">🔒 Privada</span>
+          <button class="btn-quitar-foto" type="button" data-quitar-foto="${codigo.id}" aria-label="Quitar foto del código">✕</button>
+        </figure>` : "";
+      $("#subir-foto-codigo").querySelector("span:last-child").textContent = codigo ? "Cambiar la foto con el código" : "Subir la foto con el código";
+      avisarFotoRota($("#foto-codigo-editor"));
+    }
+
+    // La foto del código vive en el almacén privado: se muestra con un enlace temporal.
+    async function vistaCodigo(f) {
+      if (!f || f.vista) return;
+      if (f.url) { f.vista = f.url; return; }   // publicaciones antiguas
+      const { data } = await UMB.db.storage.from("verificaciones").createSignedUrl(f.ruta, 600);
+      f.vista = data?.signedUrl || "";
+    }
+
+    // Prepara la foto: la reduce, revisa el formato y calcula su huella.
+    async function prepararFoto(f) {
+      const blob = await UMB.reducirImagen(f, 1400);
+      if (blob === f && !/^image\/(jpe?g|png|webp|gif)$/i.test(f.type)) {
+        throw new Error(`La foto «${f.name}» está en un formato que el navegador no puede abrir (por ejemplo HEIC de iPhone). Tómala de nuevo en JPG o haz una captura de pantalla de la foto y súbela.`);
+      }
+      const tipo = blob.type || f.type || "image/jpeg";
+      const ext = { "image/png": "png", "image/webp": "webp", "image/gif": "gif" }[tipo] || "jpg";
+      return { blob, tipo, ext, huella: await UMB.huellaImagen(blob), nombre: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}.${ext}` };
     }
 
     async function abrirEditor(producto) {
       actual = producto;
       const { data } = await UMB.db.from("producto_fotos").select("*").eq("producto_id", producto.id).order("orden");
-      fotos = data || [];
+      fotos = (data || []).filter((f) => !f.con_codigo);
+      codigo = (data || []).find((f) => f.con_codigo) || null;
+      await vistaCodigo(codigo);
       $("#titulo-editor").textContent = producto.estado_moderacion === "borrador" ? "Nueva publicación" : "Editar publicación";
       $("#codigo-publicacion").textContent = producto.codigo_verificacion || "—";
       const nota = $("#nota-edicion");
@@ -169,7 +202,7 @@
       editor.scrollIntoView({ behavior: "smooth", block: "start" });
     }
 
-    function cerrarEditor() { editor.hidden = true; actual = null; fotos = []; }
+    function cerrarEditor() { editor.hidden = true; actual = null; fotos = []; codigo = null; }
     $("#btn-cerrar-editor").addEventListener("click", cerrarEditor);
 
     $("#btn-nueva-publicacion").addEventListener("click", async (e) => {
@@ -192,14 +225,8 @@
       UMB.mensaje("#mensaje-producto", `Subiendo ${archivos.length} foto(s)…`, "info");
       try {
         for (const f of archivos) {
-          const blob = await UMB.reducirImagen(f, 1400);
-          if (blob === f && !/^image\/(jpe?g|png|webp|gif)$/i.test(f.type)) {
-            throw new Error(`La foto «${f.name}» está en un formato que el navegador no puede abrir (por ejemplo HEIC de iPhone). Tómala de nuevo en JPG o haz una captura de pantalla de la foto y súbela.`);
-          }
-          const tipo = blob.type || f.type || "image/jpeg";
-          const ext = { "image/png": "png", "image/webp": "webp", "image/gif": "gif" }[tipo] || "jpg";
-          const huella = await UMB.huellaImagen(blob);
-          const ruta = `${uid}/${actual.id}/${Date.now()}-${Math.random().toString(36).slice(2, 7)}.${ext}`;
+          const { blob, tipo, huella, nombre } = await prepararFoto(f);
+          const ruta = `${uid}/${actual.id}/${nombre}`;
           const up = await UMB.db.storage.from("productos").upload(ruta, blob, { contentType: tipo, upsert: false });
           if (up.error) throw up.error;
           const url = UMB.db.storage.from("productos").getPublicUrl(ruta).data.publicUrl;
@@ -218,26 +245,47 @@
       }
     });
 
-    $("#fotos-editor").addEventListener("change", async (e) => {
-      if (e.target.name !== "foto-codigo") return;
-      const id = Number(e.target.value);
-      await UMB.db.from("producto_fotos").update({ con_codigo: false }).eq("producto_id", actual.id);
-      const { error } = await UMB.db.from("producto_fotos").update({ con_codigo: true }).eq("id", id);
-      if (error) return UMB.toast(UMB.traducirError(error), { error: true });
-      fotos.forEach((f) => (f.con_codigo = f.id === id));
-      pintarFotos();
+    // Foto con el código (RF-06): va al almacén PRIVADO; los compradores nunca la ven.
+    $("#pr-foto-codigo").addEventListener("change", async (e) => {
+      const f = e.target.files[0];
+      e.target.value = "";
+      if (!actual || !f) return;
+      UMB.mensaje("#mensaje-producto", "Subiendo la foto con el código…", "info");
+      try {
+        const { blob, tipo, huella, nombre } = await prepararFoto(f);
+        const ruta = `${uid}/codigos/${actual.id}/${nombre}`;
+        const up = await UMB.db.storage.from("verificaciones").upload(ruta, blob, { contentType: tipo, upsert: false });
+        if (up.error) throw up.error;
+        if (codigo) await quitarFoto(codigo, false);   // reemplaza la anterior
+        const { data, error } = await UMB.db.from("producto_fotos")
+          .insert({ producto_id: actual.id, ruta, url: "", orden: 0, huella, con_codigo: true })
+          .select().single();
+        if (error) { UMB.db.storage.from("verificaciones").remove([ruta]); throw error; }
+        data.vista = URL.createObjectURL(blob);
+        codigo = data;
+        pintarFotos();
+        UMB.mensaje("#mensaje-producto", "");
+      } catch (err) {
+        UMB.mensaje("#mensaje-producto", UMB.traducirError(err), "error");
+      }
     });
 
-    $("#fotos-editor").addEventListener("click", async (e) => {
+    async function quitarFoto(f, repintar = true) {
+      const { error } = await UMB.db.from("producto_fotos").delete().eq("id", f.id);
+      if (error) throw error;
+      const almacen = f.con_codigo && !f.url ? "verificaciones" : "productos";
+      UMB.db.storage.from(almacen).remove([f.ruta]);
+      if (f === codigo) codigo = null;
+      fotos = fotos.filter((x) => x !== f);
+      if (repintar) { cargarProductos(); pintarFotos(); }
+    }
+
+    editor.addEventListener("click", async (e) => {
       const b = e.target.closest("[data-quitar-foto]");
       if (!b) return;
-      const f = fotos.find((x) => String(x.id) === b.dataset.quitarFoto);
-      const { error } = await UMB.db.from("producto_fotos").delete().eq("id", f.id);
-      if (error) return UMB.toast(UMB.traducirError(error), { error: true });
-      UMB.db.storage.from("productos").remove([f.ruta]);
-      fotos = fotos.filter((x) => x !== f);
-      cargarProductos();
-      pintarFotos();
+      const f = [...fotos, codigo].find((x) => x && String(x.id) === b.dataset.quitarFoto);
+      if (!f) return;
+      try { await quitarFoto(f); } catch (err) { UMB.toast(UMB.traducirError(err), { error: true }); }
     });
 
     function datosFormulario() {
@@ -275,8 +323,8 @@
       const msg = "#mensaje-producto";
       const d = datosFormulario();
       // Validaciones rápidas antes de ir al servidor (el servidor las repite)
-      if (fotos.length < MIN_FOTOS) return UMB.mensaje(msg, `Sube al menos ${MIN_FOTOS} fotos reales del producto.`, "error");
-      if (!fotos.some((f) => f.con_codigo)) return UMB.mensaje(msg, "Marca cuál foto muestra el código escrito en el papel.", "error");
+      if (!codigo) return UMB.mensaje(msg, "Sube la foto del producto junto al papel con el código (paso 1).", "error");
+      if (fotos.length < MIN_FOTOS) return UMB.mensaje(msg, `Sube al menos ${MIN_FOTOS} fotos del producto para el catálogo (paso 2).`, "error");
       if (!d.entrega_en_u && !d.entrega_domicilio) return UMB.mensaje(msg, "Elige al menos una modalidad de entrega.", "error");
       UMB.cargando(b, true);
       try {
